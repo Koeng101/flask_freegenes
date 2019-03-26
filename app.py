@@ -131,7 +131,7 @@ tags_parts = db.Table('tags_parts',
     db.Column('part_uuid', UUID(as_uuid=True), db.ForeignKey('parts.uuid'),primary_key=True,nullable=True),
 )
 
-
+# Virtuals
 class Collection(db.Model):
     __tablename__ = 'collections'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -155,7 +155,7 @@ class Collection(db.Model):
         tags = []
         for tag in self.tags:
             tags.append(tag.tag)
-        return {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':tags,'name':self.name,'readme':self.readme,'parent_uuid':self.parent_uuid}
+        return {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':tags,'name':self.name,'readme':self.readme,'parent_uuid':self.parent_uuid,'parts': [part.uuid for part in self.parts]}
 
 
 class Part(db.Model):
@@ -198,7 +198,7 @@ class Part(db.Model):
         for tag in self.tags:
             tags.append(tag.tag)
         # Return collection ID as well
-        return {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':tags,'name':self.name,'description':self.description,'gene_id':self.gene_id,'part_type':self.part_type,'original_sequence':self.original_sequence,'optimized_sequence':self.optimized_sequence,'synthesized_sequence':self.synthesized_sequence,'full_sequence':self.full_sequence,'genbank':self.genbank,'vector':self.vector,'primer_for':self.primer_for,'primer_rev':self.primer_rev,'barcode':self.barcode,'vbd':self.vbd,'resistance':self.resistance}
+        return {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':tags,'name':self.name,'description':self.description,'gene_id':self.gene_id,'part_type':self.part_type,'original_sequence':self.original_sequence,'optimized_sequence':self.optimized_sequence,'synthesized_sequence':self.synthesized_sequence,'full_sequence':self.full_sequence,'genbank':self.genbank,'vector':self.vector,'primer_for':self.primer_for,'primer_rev':self.primer_rev,'barcode':self.barcode,'vbd':self.vbd,'resistance':self.resistance,'samples':[sample.uuid for sample in self.samples]}
 
 class Tag(db.Model):
     __tablename__ = 'tags'
@@ -208,19 +208,14 @@ class Tag(db.Model):
     def toJSON(self):
         return {'tag':tag}
 
-
-#
-# OpenFoundry 
-# 
-
-# Robot #
+# Robot 
 class Robot(db.Model):
     __tablename__ = 'robots'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     right_300 = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"))
     left_10 = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"))
-    robot_name = db.Column(db.String())
-    notes = db.Column(db.String())
+    robot_name = db.Column(db.String)
+    notes = db.Column(db.String)
 
 class Protocol(db.Model):
     __tablename__ = 'protocols'
@@ -231,12 +226,11 @@ class Protocol(db.Model):
     description = db.Column(db.String())
     protocol = db.Column(db.JSON, nullable=False)
 
-    status = db.Column(db.String()) # planned, executed #####TODO ADD STATUS INTO POST
-
+    status = db.Column(db.String(), default='planned') # planned, executed 
     plates = db.relationship('Plate',backref='protocol') # TODO ADD plates in toJSON
 
     def toJSON(self):
-        return {'uuid': self.uuid, 'description': self.description, 'protocol': self.protocol}
+        return {'uuid': self.uuid, 'description': self.description, 'protocol': self.protocol, 'status': self.status, 'plates': [plate.uuid for plate in self.plates]}
 
 
 # Plates, wells, samples
@@ -262,7 +256,7 @@ class Plate(db.Model):
     protocol_uuid = db.Column(UUID, db.ForeignKey('protocols.uuid'), nullable=True)
 
     def toJSON(self):
-        return {'uuid': self.uuid, 'breadcrumb':self.breadcrumb,'plate_name': self.plate_name, 'plate_form': self.plate_form, 'plate_type': self.plate_type, 'status': self.status}
+        return {'uuid': self.uuid, 'breadcrumb':self.breadcrumb,'plate_name': self.plate_name, 'plate_form': self.plate_form, 'plate_type': self.plate_type, 'status': self.status, 'protocol_uuid':self.protocol_uuid, 'wells':[well.uuid for well in self.wells]}
 
 class Sample(db.Model):
     __tablename__ = 'samples'
@@ -274,18 +268,12 @@ class Sample(db.Model):
     derived_from = db.Column(UUID, db.ForeignKey('samples.uuid'), nullable=True)
 
 
+    sequencing= db.relationship('Sequencing',backref='samples')
     wells = db.relationship('Well', secondary=samples_wells, lazy='subquery',
         backref=db.backref('samples', lazy=True))
 
     def toJSON(self, wells=True, part=False):
-        dictionary = {'uuid':self.uuid,'derived_from':self.derived_from}
-        if wells==True:
-            dictionary['wells'] = [well.toJSON(samples=False) for well in self.wells]
-        if part==True:
-            dictionary['part_full'] = self.part.toJSON()
-        else:
-            dictionary['part_uuid'] = self.part_uuid
-        return dictionary
+        return {'uuid':self.uuid,'derived_from':self.derived_from,'wells':[well.uuid for well in self.wells],'part_uuid':self.part_uuid}
 
 class Well(db.Model): # Constrain Wells to being unique to each plate
     __tablename__ = 'wells'
@@ -304,12 +292,50 @@ class Well(db.Model): # Constrain Wells to being unique to each plate
     plate_uuid = db.Column(UUID, db.ForeignKey('plates.uuid'),
             nullable=False)
 
-    def toJSON(self, samples=True):
-        dictionary = {'uuid':self.uuid,'address':self.address,'volume':self.volume,'quantity':self.quantity,'media':self.media,'well_type':self.well_type,'organism':self.organism,'plate_uuid':self.plate_uuid,} 
-        if samples==True:
-            dictionary['samples'] = [sample.toJSON(wells=False) for sample in self.samples]
-        return dictionary
+    def toJSON(self):
+        return {'uuid':self.uuid,'address':self.address,'volume':self.volume,'quantity':self.quantity,'media':self.media,'well_type':self.well_type,'organism':self.organism,'plate_uuid':self.plate_uuid,'samples':[sample.uuid for sample in self.samples]} 
 
+
+# Sequencing
+
+class Sequencing(db.Model):
+    __tablename__ = 'sequencing'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+
+    sequencing_id = db.Column(db.String) # Sequencing provider id
+    sequencing_notes = db.Column(db.String)
+
+    sequencing_type = db.Column(db.String) # illumina, nanopore, etc
+    machine = db.Column(db.String) # Minion, iseq, etc
+    sequencing_provider = db.Column(db.String)
+    status = db.Column(db.String) # mutation,confirmed,etc
+    sequence = db.Column(db.String) 
+
+    pileups= db.relationship('Pileup',backref='sequencing')
+
+    sample_uuid = db.Column(UUID, db.ForeignKey('samples.uuid'),
+            nullable=False)
+
+    def toJSON(self):
+        return {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'sequencing_id':self.sequencing_id,'sequencing_notes':self.sequencing_notes,'sequencing_type':self.sequencing_type,'machine':self.machine,'sequencing_provider':self.sequencing_provider,'sequence':self.sequence, 'sample_uuid':self.sample_uuid, 'pileups':[pileup.toJSON() for pileup in self.pileups]}
+
+class Pileup(db.Model):
+    __tablename__ = 'pileups'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    sequence = db.Column(db.String) # geneid. Yes, not normalized: but makes everything more simple
+    position = db.Column(db.Integer) # Integer position
+    reference_base = db.Column(db.String) # A,T,G,C
+    read_count = db.Column(db.Integer) # 24
+    read_results = db.Column(db.String) # ,.$.....,,.,.,...,,,.,..^+.	
+    quality = db.Column(db.String) # <<<+;<<<<<<<<<<<=<;<;7<&
+
+    sequencing_uuid = db.Column(UUID, db.ForeignKey('sequencing.uuid'),
+            nullable=True)
+
+    def toJSON(self):
+        return {'sequence':self.sequence,'position':self.position,'reference_base':self.reference_base,'read_count':self.read_count,'read_results':self.read_results,'quality':self.quality}
 
 def request_to_class(dbclass,json_request):
     tags = []
@@ -322,7 +348,7 @@ def request_to_class(dbclass,json_request):
                     tags.append(Tag(tag=tag))
                 else:
                     tags.append(tags_in_db[0])
-        elif k == 'samples' and v != []: # compress into 1 liners
+        elif k == 'samples' and v != []: 
             dbclass.samples = []
             [dbclass.samples.append(Sample.query.filter_by(uuid=uuid).first()) for uuid in v] # In order to sue 
         elif k == 'wells' and v != []:
@@ -330,6 +356,11 @@ def request_to_class(dbclass,json_request):
             [dbclass.samples.append(Well.query.filter_by(uuid=uuid).first()) for uuid in v]
         elif k == 'derived_from' and v == "":
             pass
+        elif k == 'pileups' and v != []:
+            dbclass.pileups = []
+            for pileup in v:
+                new_pileup = request_to_class(Pileup,pileup)
+                dbclass.pileups.append(new_pileup)
         else:
             setattr(dbclass,k,v)
     for tag in tags:
@@ -481,7 +512,7 @@ class PartRoute(Resource):
 #################
 ### PROTOCOLS ###
 #################
-ns_protocol = api.namespace('protocols', description='OpenFoundry Protocol definitions')
+ns_protocol = api.namespace('protocols', description='OpenFoundry Protocols')
 protocol_model = api.model("protocol", {
     "description": fields.String("A description of what the protocol was used for"),
     "protocol": fields.Raw("The Protocol json protocol itself")
@@ -500,9 +531,7 @@ class ProtocolListRoute(Resource):
     def post(self):
         '''Create new protocol'''
         # TODO add schema validator
-        protocol = Protocol(description=request.get_json().get('description'),protocol=request.get_json().get('protocol'))
-        if 'uuid' in request.get_json():
-            protocol.uuid=request.get_json().get('uuid')
+        protocol = request_to_class(Protocol(),request.get_json())
         db.session.add(protocol)
         db.session.commit()
         return jsonify(protocol.toJSON())
@@ -711,6 +740,62 @@ class WellRoute(Resource):
         edit = request_to_class(edit,request.get_json())
         db.session.commit()
 
+##################
+### SEQUENCING ###
+##################
+
+ns_sequencing = api.namespace('sequencing', description='OpenFoundry Sequencing')
+sequencing_model = api.model("sequencing", {
+    "status": fields.String(),
+    "sequencing_id": fields.Raw(),
+    "sequencing_notes": fields.String(),
+    "sequencing_type": fields.String(), # nanopore, illumina
+    "machine": fields.String(),
+    "sequencing_provider": fields.String(),
+    "sample_uuid": fields.String(),
+    "pileups": fields.List(fields.Raw),
+    })
+
+@ns_sequencing.route('/')
+class SequencingListRoute(Resource):
+    '''Shows all sequencings and allows you to post new sequencings'''
+    @ns_sequencing.doc('sequencing_list')
+    def get(self):
+        '''Lists all sequencings'''
+        return jsonify([sequencing.toJSON() for sequencing in Sequencing.query.all()])
+
+    @ns_sequencing.doc('sequencing_create')
+    @api.expect(sequencing_model)
+    def post(self):
+        '''Create new sequencing'''
+        # TODO add schema validator
+        sequencing = request_to_class(Sequencing(),request.get_json())
+        db.session.add(sequencing)
+        db.session.commit()
+        return jsonify(sequencing.toJSON())
+
+@ns_sequencing.route('/<uuid>')
+class SequencingRoute(Resource):
+    '''Shows a single sequencing and allows you to delete or update preexisting sequencings'''
+    @ns_sequencing.doc('sequencing_get')
+    def get(self,uuid):
+        '''Get a single sequencing'''
+        return jsonify(Sequencing.query.filter_by(uuid=uuid).first().toJSON())
+
+    @ns_sequencing.doc('sequencing_delete')
+    def delete(self,uuid):
+        '''Delete a single sequencing'''
+        db.session.delete(Sequencing.query.get(uuid))
+        db.session.commit()
+
+    @ns_sequencing.doc('sequencing_put')
+    def put(self,uuid):
+        '''Update a single sequencing'''
+        # TODO add schema validator
+        sequencing = Sequencing.query.filter_by(uuid=uuid).first()
+        sequencing.description = request.get_json().get('description')
+        sequencing.sequencing = request.get_json().get('sequencing')
+        db.session.commit()
 
 
 if __name__ == '__main__':
