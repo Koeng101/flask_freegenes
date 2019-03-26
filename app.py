@@ -141,8 +141,9 @@ class Collection(db.Model):
     status = db.Column(db.String) # planned, in-progress
 
     parts = db.relationship('Part',backref='collections')
-    parent_id = db.Column(db.UUID, db.ForeignKey('collections.uuid'),
+    parent_uuid = db.Column(db.UUID, db.ForeignKey('collections.uuid'),
             nullable=True)
+    children = db.relationship('Collection')
 
     tags = db.relationship('Tag', secondary=tags_collection, lazy='subquery',
         backref=db.backref('collections', lazy=True))
@@ -154,9 +155,7 @@ class Collection(db.Model):
         tags = []
         for tag in self.tags:
             tags.append(tag.tag)
-        # Parent class
-        # Parts
-        return {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':tags,'name':self.name,'readme':self.readme}
+        return {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':tags,'name':self.name,'readme':self.readme,'parent_uuid':self.parent_uuid}
 
 
 class Part(db.Model):
@@ -188,8 +187,10 @@ class Part(db.Model):
 
     tags = db.relationship('Tag', secondary=tags_parts, lazy='subquery',
         backref=db.backref('parts', lazy=True))
+
     collection_id = db.Column(db.UUID, db.ForeignKey('collections.uuid'),
             nullable=False)
+
 
     def toJSON(self):
         tags = []
@@ -218,7 +219,6 @@ def request_to_class(dbclass,json_request):
                 if len(tags_in_db) == 0:
                     tags.append(Tag(tag=tag))
                 else:
-                    print(tags_in_db[0])
                     tags.append(tags_in_db[0])
     dbclass.tags = []
     for tag in tags:
@@ -279,6 +279,23 @@ class CollectionRoute(Resource):
         updated_collection = request_to_class(collection,request.get_json())
         db.session.commit()
         return jsonify(updated_collection.toJSON())
+
+@ns_collection.route('/full/<uuid>')
+class CollectionAllRoute(Resource):
+    '''Shows a collection all the way down to the root'''
+    @ns_collection.doc('collection_get_all')
+    def get(self,uuid):
+        '''Get a single collection and everything down the tree'''
+        def recursive_down(collection):
+            dictionary = collection.toJSON()
+            dictionary['parts'] = [part.toJSON() for part in collection.parts]
+            if len(collection.children) > 0:
+                dictionary['subcollections'] = [recursive_down(subcollection) for subcollection in collection.children]
+            return dictionary
+        return jsonify(recursive_down(Collection.query.filter_by(uuid=uuid).first()))
+
+
+        
 
 #############
 ### Parts ###
