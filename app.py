@@ -19,11 +19,12 @@ from sqlalchemy.dialects.postgresql import UUID
 import sqlalchemy
 from sqlalchemy.sql import func
 
-
+from config import URL
+from config import SECRET_KEY
 # initialization
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'the quick brown fox jumps over the lazy dog'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres://amekqvvo:Iho5EOu8Pd2Zh2TQhNMchoK3p004gFv6@isilo.db.elephantsql.com:5432/amekqvvo'
+app.config['SECRET_KEY'] = SECRET_KEY
+app.config['SQLALCHEMY_DATABASE_URI'] = URL
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # extensions
