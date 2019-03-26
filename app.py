@@ -23,7 +23,7 @@ from sqlalchemy.sql import func
 # initialization
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'the quick brown fox jumps over the lazy dog'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres://jfoiyrnh:rbdDeE-lTR1FdAOQMiRW_H3Ht1Zt5BLW@isilo.db.elephantsql.com:5432/jfoiyrnh'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres://amekqvvo:Iho5EOu8Pd2Zh2TQhNMchoK3p004gFv6@isilo.db.elephantsql.com:5432/amekqvvo'
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # extensions
@@ -33,14 +33,13 @@ api = Api(app, version='1.0', title='FreeGenes Collections',
             description='FreeGenes API',
             )
 migrate = Migrate(app, db)
-db.UUID = UUID
 #######################
 ### User management ###
 #######################
 
 class User(db.Model):
     __tablename__ = 'users'
-    id = db.Column(db.UUID, primary_key=True)
+    id = db.Column(UUID, primary_key=True)
     username = db.Column(db.String(32), index=True)
     password_hash = db.Column(db.String(64))
 
@@ -122,26 +121,26 @@ def get_resource():
 #################
 
 tags_collection = db.Table('tags_collection',
-    db.Column('tags_uuid', db.UUID(as_uuid=True), db.ForeignKey('tags.uuid'), primary_key=True),
-    db.Column('collection_uuid', db.UUID(as_uuid=True), db.ForeignKey('collections.uuid'), primary_key=True, nullable=True),
+    db.Column('tags_uuid', UUID(as_uuid=True), db.ForeignKey('tags.uuid'), primary_key=True),
+    db.Column('collection_uuid', UUID(as_uuid=True), db.ForeignKey('collections.uuid'), primary_key=True, nullable=True),
 )
 
 tags_parts = db.Table('tags_parts',
-    db.Column('tags_uuid', db.UUID(as_uuid=True), db.ForeignKey('tags.uuid'), primary_key=True),
-    db.Column('part_uuid', db.UUID(as_uuid=True), db.ForeignKey('parts.uuid'),primary_key=True,nullable=True),
+    db.Column('tags_uuid', UUID(as_uuid=True), db.ForeignKey('tags.uuid'), primary_key=True),
+    db.Column('part_uuid', UUID(as_uuid=True), db.ForeignKey('parts.uuid'),primary_key=True,nullable=True),
 )
 
 
 class Collection(db.Model):
     __tablename__ = 'collections'
-    uuid = db.Column(db.UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
     
     status = db.Column(db.String) # planned, in-progress
 
     parts = db.relationship('Part',backref='collections')
-    parent_uuid = db.Column(db.UUID, db.ForeignKey('collections.uuid'),
+    parent_uuid = db.Column(UUID, db.ForeignKey('collections.uuid'),
             nullable=True)
     children = db.relationship('Collection')
 
@@ -160,7 +159,7 @@ class Collection(db.Model):
 
 class Part(db.Model):
     __tablename__ = 'parts'
-    uuid = db.Column(db.UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
@@ -188,9 +187,10 @@ class Part(db.Model):
     tags = db.relationship('Tag', secondary=tags_parts, lazy='subquery',
         backref=db.backref('parts', lazy=True))
 
-    collection_id = db.Column(db.UUID, db.ForeignKey('collections.uuid'),
+    collection_id = db.Column(UUID, db.ForeignKey('collections.uuid'),
             nullable=False)
-
+    
+    samples = db.relationship('Sample',backref='part')
 
     def toJSON(self):
         tags = []
@@ -201,34 +201,144 @@ class Part(db.Model):
 
 class Tag(db.Model):
     __tablename__ = 'tags'
-    uuid = db.Column(db.UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     tag = db.Column(db.String)
 
     def toJSON(self):
         return {'tag':tag}
 
 
+#
+# OpenFoundry 
+# 
+
+# Robot #
+class Robot(db.Model):
+    __tablename__ = 'robots'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    right_300 = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"))
+    left_10 = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"))
+    robot_name = db.Column(db.String())
+    notes = db.Column(db.String())
+
+class Protocol(db.Model):
+    __tablename__ = 'protocols'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+
+    description = db.Column(db.String())
+    protocol = db.Column(db.JSON, nullable=False)
+
+    status = db.Column(db.String()) # planned, executed #####TODO ADD STATUS INTO POST
+
+    plates = db.relationship('Plate',backref='protocol') # TODO ADD plates in toJSON
+
+    def toJSON(self):
+        return {'uuid': self.uuid, 'description': self.description, 'protocol': self.protocol}
+
+
+# Plates, wells, samples
+
+samples_wells = db.Table('samples_wells',
+    db.Column('samples_uuid', UUID(as_uuid=True), db.ForeignKey('samples.uuid'), primary_key=True),
+    db.Column('wells_uuid', UUID(as_uuid=True), db.ForeignKey('wells.uuid'), primary_key=True, nullable=True),
+)
+
+class Plate(db.Model):
+    __tablename__ = 'plates'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+    status = db.Column(db.String) # planned, processing, complete
+
+    breadcrumb = db.Column(db.String)
+    plate_name = db.Column(db.String(32))
+    plate_form = db.Column(db.String(32))
+    plate_type = db.Column(db.String(32)) # dna_plate, asssembly, transformation, agar_plate, deepwell, glycerol
+    wells = db.relationship('Well',backref='plate')
+
+    protocol_uuid = db.Column(UUID, db.ForeignKey('protocols.uuid'), nullable=True)
+
+    def toJSON(self):
+        return {'uuid': self.uuid, 'breadcrumb':self.breadcrumb,'plate_name': self.plate_name, 'plate_form': self.plate_form, 'plate_type': self.plate_type, 'status': self.status}
+
+class Sample(db.Model):
+    __tablename__ = 'samples'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+
+    part_uuid = db.Column(UUID, db.ForeignKey('parts.uuid'), nullable=False)
+    derived_from = db.Column(UUID, db.ForeignKey('samples.uuid'), nullable=True)
+
+
+    wells = db.relationship('Well', secondary=samples_wells, lazy='subquery',
+        backref=db.backref('samples', lazy=True))
+
+    def toJSON(self, wells=True, part=False):
+        dictionary = {'uuid':self.uuid,'derived_from':self.derived_from}
+        if wells==True:
+            dictionary['wells'] = [well.toJSON(samples=False) for well in self.wells]
+        if part==True:
+            dictionary['part_full'] = self.part.toJSON()
+        else:
+            dictionary['part_uuid'] = self.part_uuid
+        return dictionary
+
+class Well(db.Model): # Constrain Wells to being unique to each plate
+    __tablename__ = 'wells'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+
+    address = db.Column(db.String(32), nullable=False)
+    volume = db.Column(db.Float, nullable=True) # ul - if null, dry
+
+    quantity = db.Column(db.Float, nullable=True) # fmol - if null, unknown
+    media = db.Column(db.String(32)) # Liquid
+    well_type = db.Column(db.String(32)) # glycerol,grown,purified_dna,pcr,gdna,etc
+    organism = db.Column(db.String)
+
+    plate_uuid = db.Column(UUID, db.ForeignKey('plates.uuid'),
+            nullable=False)
+
+    def toJSON(self, samples=True):
+        dictionary = {'uuid':self.uuid,'address':self.address,'volume':self.volume,'quantity':self.quantity,'media':self.media,'well_type':self.well_type,'organism':self.organism,'plate_uuid':self.plate_uuid,} 
+        if samples==True:
+            dictionary['samples'] = [sample.toJSON(wells=False) for sample in self.samples]
+        return dictionary
+
+
 def request_to_class(dbclass,json_request):
     tags = []
     for k,v in json_request.items():
-        if k != 'tags':
-            setattr(dbclass, k, v)
         if k == 'tags' and v != []:
+            dbclass.tags = []
             for tag in v:
                 tags_in_db = Tag.query.filter_by(tag=tag).all()
                 if len(tags_in_db) == 0:
                     tags.append(Tag(tag=tag))
                 else:
                     tags.append(tags_in_db[0])
-    dbclass.tags = []
+        elif k == 'samples' and v != []: # compress into 1 liners
+            dbclass.samples = []
+            [dbclass.samples.append(Sample.query.filter_by(uuid=uuid).first()) for uuid in v] # In order to sue 
+        elif k == 'wells' and v != []:
+            dbclass.wells = []
+            [dbclass.samples.append(Well.query.filter_by(uuid=uuid).first()) for uuid in v]
+        elif k == 'derived_from' and v == "":
+            pass
+        else:
+            setattr(dbclass,k,v)
     for tag in tags:
         dbclass.tags.append(tag)
     return dbclass
 
 ###################
-### Collections ###
+### COLLECTIONS ###
 ###################
-ns_collection = api.namespace('collections', description='Collection collection definitions')
+ns_collection = api.namespace('collections', description='Collection definitions')
 collection_model = api.model("collection", {
     "name": fields.String(),
     "readme": fields.String(),
@@ -274,7 +384,6 @@ class CollectionRoute(Resource):
     @api.expect(collection_model)
     def put(self,uuid):
         '''Update a single collection'''
-        # TODO add schema validator
         collection = Collection.query.filter_by(uuid=uuid).first()
         updated_collection = request_to_class(collection,request.get_json())
         db.session.commit()
@@ -298,12 +407,11 @@ class CollectionAllRoute(Resource):
         
 
 #############
-### Parts ###
+### PARTS ###
 #############
 
 # TODO self insert dat gene_id
-# {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':tags,'name':self.name,'description':self.description,'gene_id':self.gene_id,'part_type':self.part_type,'original_sequence':self.original_sequence,'optimized_sequence':self.optimized_sequence,'synthesized_sequence':self.synthesized_sequence,'full_sequence':self.full_sequence,'genbank':self.genbank,'vector':self.vector,'primer_for':self.primer_for,'primer_rev':self.primer_rev,'barcode':self.barcode,'vbd':self.vbd,'resistance':self.resistance}
-ns_part = api.namespace('parts', description='Part part definitions')
+ns_part = api.namespace('parts', description='Part definitions')
 part_model = api.model("part", {
     "name": fields.String(),
     "description": fields.String(),
@@ -362,12 +470,245 @@ class PartRoute(Resource):
     @api.expect(part_model)
     def put(self,uuid):
         '''Update a single part'''
-        # Remember, tags are always reset.  
         part = Part.query.filter_by(uuid=uuid).first()
         updated_part = request_to_class(part,request.get_json())
         db.session.commit()
         return jsonify(updated_part.toJSON())
 
+
+
+#################
+### PROTOCOLS ###
+#################
+ns_protocol = api.namespace('protocols', description='OpenFoundry Protocol definitions')
+protocol_model = api.model("protocol", {
+    "description": fields.String("A description of what the protocol was used for"),
+    "protocol": fields.Raw("The Protocol json protocol itself")
+    })
+
+@ns_protocol.route('/')
+class ProtocolListRoute(Resource): 
+    '''Shows all protocols and allows you to post new protocols'''
+    @ns_protocol.doc('protocol_list')
+    def get(self):
+        '''Lists all protocols'''
+        return jsonify([protocol.toJSON() for protocol in Protocol.query.all()])
+
+    @ns_protocol.doc('protocol_create')
+    @api.expect(protocol_model)
+    def post(self):
+        '''Create new protocol'''
+        # TODO add schema validator
+        protocol = Protocol(description=request.get_json().get('description'),protocol=request.get_json().get('protocol'))
+        if 'uuid' in request.get_json():
+            protocol.uuid=request.get_json().get('uuid')
+        db.session.add(protocol)
+        db.session.commit()
+        return jsonify(protocol.toJSON())
+
+@ns_protocol.route('/<uuid>')
+class ProtocolRoute(Resource):
+    '''Shows a single protocol and allows you to delete or update preexisting protocols'''
+    @ns_protocol.doc('protocol_get')
+    def get(self,uuid):
+        '''Get a single protocol'''
+        return jsonify(Protocol.query.filter_by(uuid=uuid).first().toJSON())
+    
+    @ns_protocol.doc('protocol_delete')
+    def delete(self,uuid):
+        '''Delete a single protocol'''
+        db.session.delete(Protocol.query.get(uuid))
+        db.session.commit()
+
+    @ns_protocol.doc('protocol_put')
+    def put(self,uuid):
+        '''Update a single protocol'''
+        # TODO add schema validator
+        protocol = Protocol.query.filter_by(uuid=uuid).first()
+        protocol.description = request.get_json().get('description')
+        protocol.protocol = request.get_json().get('protocol')
+        db.session.commit()
+
+
+#############
+### PLATE ###
+#############
+ns_plate = api.namespace('plates', description='OpenFoundry Plates')
+plate_model = api.model("plate", {
+    "breadcrumb": fields.String(),
+    "plate_name": fields.String("The human readable plate name"),
+    "plate_form": fields.String("The physical form of the plate: 96standard, 96deepwell, 384standard"),
+    "plate_type": fields.String("The sample types contained within a plate: raw_dna,miniprep,pcr,glycerol_stock,culture,agar"),
+    "status": fields.String("The status of the plate as it transfers through the system: planned,processing,used,trashed,stored"),
+    "protocol_uuid": fields.String(),
+    })
+
+@ns_plate.route('/')
+class PlateListRoute(Resource): 
+    '''Shows all plates and allows you to post new plates'''
+    @ns_plate.doc('plates_list')
+    def get(self):
+        '''Lists all plates'''
+        return jsonify([db_object.toJSON() for db_object in Plate.query.all()])
+
+    @ns_plate.doc('plates_create')
+    @api.expect(plate_model)
+    def post(self):
+        '''Create new plate'''
+        # TODO add schema validator
+        plate = request_to_class(Plate(),request.get_json())
+        db.session.add(plate)
+        db.session.commit()
+        return jsonify(plate.toJSON())
+
+@ns_plate.route('/<uuid>')
+class PlateRoute(Resource):
+    '''Shows a single plate and allows you to delete or update preexisting plates'''
+    @ns_plate.doc('plate_get')
+    def get(self,uuid):
+        '''Get a single plate'''
+        return jsonify(Plate.query.filter_by(uuid=uuid).first().toJSON())
+    
+    @ns_plate.doc('plate_delete')
+    def delete(self,uuid):
+        '''Delete a single plate'''
+        db.session.delete(Plate.query.get(uuid))
+        db.session.commit()
+
+    @ns_plate.doc('plate_put')
+    @api.expect(plate_model)
+    def put(self,uuid):
+        '''Update a single plate'''
+        edit = Plate.query.filter_by(uuid=uuid).first()
+        edit = request_to_class(edit,request.get_json())
+        db.session.commit()
+
+#@ns_plate.route('/all/<uuid>')
+#class PlateWellsRoute(Resource):
+#    '''Gets all information associated with a plate except historical information'''
+#    @ns_plate.doc('plate_wells_get')
+#    def get(self,uuid):
+#        '''Get all information associated with a plate'''
+#        plate = Plate.query.filter_by(uuid=uuid).first().toJSON()
+#        wells = []
+#        for well in Well.query.filter_by(plate_id=uuid):
+#            target_well = well.toJSON()
+#            target_well['sample'] = Sample.query.filter_by(uuid=target_well['sample_id']).first().toJSON()
+#            target_well['sample']['virtual'] = Virtual.query.filter_by(uuid=target_well['sample']['dna_id']).first().toJSON()
+#            wells.append(target_well)
+#        plate['wells'] = wells
+#        return jsonify(plate)
+
+
+###############
+### Sample ####
+###############
+ns_sample = api.namespace('samples', description='OpenFoundry Samples')
+sample_model = api.model("sample", {
+    "part_uuid": fields.String("The DNA sample that this sample represented"), # TODO add required where necessary
+    "derived_from": fields.String(default=None), #TODO RULES FOR DERIVED FROM
+    "wells": fields.List(fields.String),
+    })
+
+@ns_sample.route('/')
+class SampleListRoute(Resource):
+    '''Shows all samples and allows you to post new samples'''
+    @ns_sample.doc('samples_list')
+    def get(self):
+        '''Lists all samples'''
+        return jsonify([db_object.toJSON() for db_object in Sample.query.all()])
+
+    @ns_sample.doc('samples_create')
+    @api.expect(sample_model)
+    def post(self):
+        '''Create new sample'''
+        # TODO add schema validator
+        sample = request_to_class(Sample(),request.get_json())
+        db.session.add(sample)
+        db.session.commit()
+        return jsonify(sample.toJSON())
+
+@ns_sample.route('/<uuid>')
+class SampleRoute(Resource):
+    '''Shows a single sample and allows you to delete or update preexisting samples'''
+    @ns_sample.doc('sample_get')
+    def get(self,uuid):
+        '''Get a single sample'''
+        return jsonify(Sample.query.filter_by(uuid=uuid).first().toJSON())
+
+    @ns_sample.doc('sample_delete')
+    def delete(self,uuid):
+        '''Delete a single sample'''
+        db.session.delete(Sample.query.get(uuid))
+        db.session.commit()
+
+    @ns_sample.doc('sample_put')
+    @api.expect(sample_model)
+    def put(self,uuid):
+        '''Update a single sample'''
+        edit = Sample.query.filter_by(uuid=uuid).first()
+        edit = request_to_class(edit,request.get_json())
+        db.session.commit()
+
+
+#############
+### Well ####
+#############
+#        return {'uuid':self.uuid,'address':self.address,'volume':self.volume,'plate_id':self.plate_id,'sample_id':self.sample_id}
+
+ns_well = api.namespace('wells', description='OpenFoundry Wells')
+well_model = api.model("well", {
+    "address": fields.String("Plate address of well"),
+    "volume": fields.Float("Volume of sample"),
+    "plate_uuid": fields.String("UUID of plate that well exists in"),
+    "samples": fields.List(fields.String),
+    ###    
+    "quantity": fields.Float("The quantity of the DNA in fmol. Null if in organism or unknown"),
+    "media": fields.String("The solvent or media that the sample is in"),
+    "sample_type": fields.String("The physical type of sample (glycerol_stock,miniprepped_sample,synthetic_dna)"),
+    "organism": fields.String("The organism the DNA is in if not a raw DNA sample")
+
+    })
+
+@ns_well.route('/')
+class WellListRoute(Resource):
+    '''Shows all wells and allows you to post new wells'''
+    @ns_well.doc('wells_list')
+    def get(self):
+        '''Lists all wells'''
+        return jsonify([db_object.toJSON() for db_object in Well.query.all()])
+
+    @ns_well.doc('wells_create')
+    @api.expect(well_model)
+    def post(self):
+        '''Create new well'''
+        # TODO add schema validator
+        well = request_to_class(Well(),request.get_json())
+        db.session.add(well)
+        db.session.commit()
+        return jsonify(well.toJSON())
+
+@ns_well.route('/<uuid>')
+class WellRoute(Resource):
+    '''Shows a single well and allows you to delete or update preexisting wells'''
+    @ns_well.doc('well_get')
+    def get(self,uuid):
+        '''Get a single well'''
+        return jsonify(Well.query.filter_by(uuid=uuid).first().toJSON())
+
+    @ns_well.doc('well_delete')
+    def delete(self,uuid):
+        '''Delete a single well'''
+        db.session.delete(Well.query.get(uuid))
+        db.session.commit()
+
+    @ns_well.doc('well_put')
+    @api.expect(well_model)
+    def put(self,uuid):
+        '''Update a single well'''
+        edit = Well.query.filter_by(uuid=uuid).first()
+        edit = request_to_class(edit,request.get_json())
+        db.session.commit()
 
 
 
