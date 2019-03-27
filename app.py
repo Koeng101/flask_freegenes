@@ -21,6 +21,7 @@ from sqlalchemy.sql import func
 
 from config import URL
 from config import SECRET_KEY
+from config import DEV
 # initialization
 app = Flask(__name__)
 app.config['SECRET_KEY'] = SECRET_KEY
@@ -158,13 +159,25 @@ class Collection(db.Model):
         return {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':tags,'name':self.name,'readme':self.readme,'parent_uuid':self.parent_uuid,'parts': [part.uuid for part in self.parts]}
 
 
+class Author(db.Model):
+    __tablename__ = 'authors'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    name = db.Column(db.String)
+    email = db.Column(db.String)
+    affiliation = db.Column(db.String)
+    orcid = db.Column(db.String)
+    parts = db.relationship('Part',backref='author')
+
+    def toJSON(self):
+        return {'uuid':self.uuid,'name':self.name,'email':self.email,'affiliation':self.affiliation,'orcid':self.orcid,'parts':[part.uuid for part in self.parts]}
+
 class Part(db.Model):
     __tablename__ = 'parts'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
-    status = db.Column(db.String)
+    status = db.Column(db.String) # NOT NORMALIZED WITH SEQ. NOT GOOD... but convenient.
 
     name = db.Column(db.String)
     description = db.Column(db.String)
@@ -190,7 +203,9 @@ class Part(db.Model):
 
     collection_id = db.Column(UUID, db.ForeignKey('collections.uuid'),
             nullable=False)
-    
+    author_uuid = db.Column(UUID, db.ForeignKey('authors.uuid'),
+            nullable=False)
+
     samples = db.relationship('Sample',backref='part')
 
     def toJSON(self):
@@ -461,7 +476,8 @@ part_model = api.model("part", {
     "barcode": fields.String(),
     "vbd": fields.String(),
     "resistance": fields.String(),
-    "collection_id": fields.String()
+    "collection_id": fields.String(),
+    "parent_uuid": fields.String(),
     })
 
 @ns_part.route('/')
@@ -797,7 +813,61 @@ class SequencingRoute(Resource):
         sequencing.sequencing = request.get_json().get('sequencing')
         db.session.commit()
 
+###############
+### AUTHORS ###
+###############
+ns_author = api.namespace('authors', description='OpenFoundry Authors')
+author_model = api.model("author", {
+    "name": fields.String(),
+    "email": fields.String(),
+    "affiliation": fields.String(),
+    "orcid": fields.String(),
+    })
 
-if __name__ == '__main__':
+@ns_author.route('/')
+class AuthorListRoute(Resource):
+    '''Shows all authors and allows you to post new authors'''
+    @ns_author.doc('author_list')
+    def get(self):
+        '''Lists all authors'''
+        return jsonify([author.toJSON() for author in Author.query.all()])
+
+    @ns_author.doc('author_create')
+    @api.expect(author_model)
+    def post(self):
+        '''Create new author'''
+        # TODO add schema validator
+        author = request_to_class(Author(),request.get_json())
+        db.session.add(author)
+        db.session.commit()
+        return jsonify(author.toJSON())
+
+@ns_author.route('/<uuid>')
+class AuthorRoute(Resource):
+    '''Shows a single author and allows you to delete or update preexisting authors'''
+    @ns_author.doc('author_get')
+    def get(self,uuid):
+        '''Get a single author'''
+        return jsonify(Author.query.filter_by(uuid=uuid).first().toJSON())
+
+    @ns_author.doc('author_delete')
+    def delete(self,uuid):
+        '''Delete a single author'''
+        db.session.delete(Author.query.get(uuid))
+        db.session.commit()
+
+    @ns_author.doc('author_put')
+    def put(self,uuid):
+        '''Update a single author'''
+        # TODO add schema validator
+        author = Author.query.filter_by(uuid=uuid).first()
+        author.description = request.get_json().get('description')
+        author.author = request.get_json().get('author')
+        db.session.commit()
+
+
+if __name__ == '__main__' and DEV == True:
     app.run(debug=True)
+elif __name__ == '__main__' and DEV == False:
+    app.run(host='0.0.0.0')
 
