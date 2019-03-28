@@ -411,6 +411,7 @@ class CollectionListRoute(Resource):
 
     @ns_collection.doc('collection_create')
     @api.expect(collection_model)
+    @auth.login_required
     def post(self):
         '''Create new collection'''
         collection = request_to_class(Collection(), request.get_json())
@@ -429,6 +430,7 @@ class CollectionRoute(Resource):
         return jsonify(Collection.query.filter_by(uuid=uuid).first().toJSON())
     
     @ns_collection.doc('collection_delete')
+    @auth.login_required
     def delete(self,uuid):
         '''Delete a single collection'''
         db.session.delete(Collection.query.get(uuid))
@@ -437,6 +439,7 @@ class CollectionRoute(Resource):
 
     @ns_collection.doc('collection_put')
     @api.expect(collection_model)
+    @auth.login_required
     def put(self,uuid):
         '''Update a single collection'''
         collection = Collection.query.filter_by(uuid=uuid).first()
@@ -498,6 +501,7 @@ class PartListRoute(Resource):
 
     @ns_part.doc('part_create')
     @api.expect(part_model)
+    @auth.login_required
     def post(self):
         '''Create new part'''
         part = request_to_class(Part(), request.get_json())
@@ -516,6 +520,7 @@ class PartRoute(Resource):
         return jsonify(Part.query.filter_by(uuid=uuid).first().toJSON())
 
     @ns_part.doc('part_delete')
+    @auth.login_required
     def delete(self,uuid):
         '''Delete a single part'''
         db.session.delete(Part.query.get(uuid))
@@ -524,6 +529,7 @@ class PartRoute(Resource):
 
     @ns_part.doc('part_put')
     @api.expect(part_model)
+    @auth.login_required
     def put(self,uuid):
         '''Update a single part'''
         part = Part.query.filter_by(uuid=uuid).first()
@@ -552,6 +558,7 @@ class ProtocolListRoute(Resource):
 
     @ns_protocol.doc('protocol_create')
     @api.expect(protocol_model)
+    @auth.login_required
     def post(self):
         '''Create new protocol'''
         # TODO add schema validator
@@ -569,12 +576,15 @@ class ProtocolRoute(Resource):
         return jsonify(Protocol.query.filter_by(uuid=uuid).first().toJSON())
     
     @ns_protocol.doc('protocol_delete')
+    @auth.login_required
     def delete(self,uuid):
         '''Delete a single protocol'''
         db.session.delete(Protocol.query.get(uuid))
         db.session.commit()
 
     @ns_protocol.doc('protocol_put')
+    @api.expect(protocol_model)
+    @auth.login_required
     def put(self,uuid):
         '''Update a single protocol'''
         # TODO add schema validator
@@ -607,6 +617,7 @@ class PlateListRoute(Resource):
 
     @ns_plate.doc('plates_create')
     @api.expect(plate_model)
+    @auth.login_required
     def post(self):
         '''Create new plate'''
         # TODO add schema validator
@@ -624,6 +635,7 @@ class PlateRoute(Resource):
         return jsonify(Plate.query.filter_by(uuid=uuid).first().toJSON())
     
     @ns_plate.doc('plate_delete')
+    @auth.login_required
     def delete(self,uuid):
         '''Delete a single plate'''
         db.session.delete(Plate.query.get(uuid))
@@ -631,27 +643,12 @@ class PlateRoute(Resource):
 
     @ns_plate.doc('plate_put')
     @api.expect(plate_model)
+    @auth.login_required
     def put(self,uuid):
         '''Update a single plate'''
         edit = Plate.query.filter_by(uuid=uuid).first()
         edit = request_to_class(edit,request.get_json())
         db.session.commit()
-
-#@ns_plate.route('/all/<uuid>')
-#class PlateWellsRoute(Resource):
-#    '''Gets all information associated with a plate except historical information'''
-#    @ns_plate.doc('plate_wells_get')
-#    def get(self,uuid):
-#        '''Get all information associated with a plate'''
-#        plate = Plate.query.filter_by(uuid=uuid).first().toJSON()
-#        wells = []
-#        for well in Well.query.filter_by(plate_id=uuid):
-#            target_well = well.toJSON()
-#            target_well['sample'] = Sample.query.filter_by(uuid=target_well['sample_id']).first().toJSON()
-#            target_well['sample']['virtual'] = Virtual.query.filter_by(uuid=target_well['sample']['dna_id']).first().toJSON()
-#            wells.append(target_well)
-#        plate['wells'] = wells
-#        return jsonify(plate)
 
 
 ###############
@@ -674,6 +671,7 @@ class SampleListRoute(Resource):
 
     @ns_sample.doc('samples_create')
     @api.expect(sample_model)
+    @auth.login_required
     def post(self):
         '''Create new sample'''
         # TODO add schema validator
@@ -691,6 +689,7 @@ class SampleRoute(Resource):
         return jsonify(Sample.query.filter_by(uuid=uuid).first().toJSON())
 
     @ns_sample.doc('sample_delete')
+    @auth.login_required
     def delete(self,uuid):
         '''Delete a single sample'''
         db.session.delete(Sample.query.get(uuid))
@@ -698,6 +697,7 @@ class SampleRoute(Resource):
 
     @ns_sample.doc('sample_put')
     @api.expect(sample_model)
+    @auth.login_required
     def put(self,uuid):
         '''Update a single sample'''
         edit = Sample.query.filter_by(uuid=uuid).first()
@@ -734,6 +734,7 @@ class WellListRoute(Resource):
 
     @ns_well.doc('wells_create')
     @api.expect(well_model)
+    @auth.login_required
     def post(self):
         '''Create new well'''
         # TODO add schema validator
@@ -751,6 +752,7 @@ class WellRoute(Resource):
         return jsonify(Well.query.filter_by(uuid=uuid).first().toJSON())
 
     @ns_well.doc('well_delete')
+    @auth.login_required
     def delete(self,uuid):
         '''Delete a single well'''
         db.session.delete(Well.query.get(uuid))
@@ -758,6 +760,7 @@ class WellRoute(Resource):
 
     @ns_well.doc('well_put')
     @api.expect(well_model)
+    @auth.login_required
     def put(self,uuid):
         '''Update a single well'''
         edit = Well.query.filter_by(uuid=uuid).first()
@@ -790,6 +793,7 @@ class SequencingListRoute(Resource):
 
     @ns_sequencing.doc('sequencing_create')
     @api.expect(sequencing_model)
+    @auth.login_required
     def post(self):
         '''Create new sequencing'''
         # TODO add schema validator
@@ -807,12 +811,15 @@ class SequencingRoute(Resource):
         return jsonify(Sequencing.query.filter_by(uuid=uuid).first().toJSON())
 
     @ns_sequencing.doc('sequencing_delete')
+    @auth.login_required
     def delete(self,uuid):
         '''Delete a single sequencing'''
         db.session.delete(Sequencing.query.get(uuid))
         db.session.commit()
 
     @ns_sequencing.doc('sequencing_put')
+    @api.expect(sequencing_model)
+    @auth.login_required
     def put(self,uuid):
         '''Update a single sequencing'''
         # TODO add schema validator
@@ -842,6 +849,7 @@ class AuthorListRoute(Resource):
 
     @ns_author.doc('author_create')
     @api.expect(author_model)
+    @auth.login_required
     def post(self):
         '''Create new author'''
         # TODO add schema validator
@@ -859,12 +867,15 @@ class AuthorRoute(Resource):
         return jsonify(Author.query.filter_by(uuid=uuid).first().toJSON())
 
     @ns_author.doc('author_delete')
+    @auth.login_required
     def delete(self,uuid):
         '''Delete a single author'''
         db.session.delete(Author.query.get(uuid))
         db.session.commit()
 
     @ns_author.doc('author_put')
+    @api.expect(author_model)
+    @auth.login_required
     def put(self,uuid):
         '''Update a single author'''
         # TODO add schema validator
