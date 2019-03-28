@@ -22,6 +22,8 @@ from sqlalchemy.sql import func
 from config import URL
 from config import SECRET_KEY
 from config import DEV
+from config import LOGIN_KEY
+
 # initialization
 app = Flask(__name__)
 app.config['SECRET_KEY'] = SECRET_KEY
@@ -41,19 +43,19 @@ migrate = Migrate(app, db)
 
 class User(db.Model):
     __tablename__ = 'users'
-    id = db.Column(UUID, primary_key=True)
-    username = db.Column(db.String(32), index=True)
-    password_hash = db.Column(db.String(64))
+    id = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True) 
+    username = db.Column(db.String, index=True)
+    password_hash = db.Column(db.String(150))
 
     def hash_password(self, password):
-        self.password_hash = pwd_context.encrypt(password)
+        self.password_hash = pwd_context.hash(password)
 
     def verify_password(self, password):
         return pwd_context.verify(password, self.password_hash)
 
     def generate_auth_token(self, expiration=600):
         s = Serializer(app.config['SECRET_KEY'], expires_in=expiration)
-        return s.dumps({'id': self.id})
+        return s.dumps({'id': str(self.id)})
 
     @staticmethod
     def verify_auth_token(token):
@@ -79,43 +81,49 @@ def verify_password(username_or_token, password):
     g.user = user
     return True
 
+ns_users = api.namespace('users', description='User login')
+user_model = api.model("user", {
+    "username": fields.String(),
+    "password": fields.String(),
+    "login_key": fields.String()
+    })
 
-@app.route('/api/users', methods=['POST'])
-def new_user():
-    username = request.json.get('username')
-    password = request.json.get('password')
-    if username is None or password is None:
-        abort(400)    # missing arguments
-    if User.query.filter_by(username=username).first() is not None:
-        abort(400)    # existing user
-    user = User(username=username)
-    user.hash_password(password)
-    db.session.add(user)
-    db.session.commit()
-    return (jsonify({'username': user.username}), 201,
-            {'Location': url_for('get_user', id=user.id, _external=True)})
-
-
-@app.route('/api/users/<int:id>')
-def get_user(id):
-    user = User.query.get(id)
-    if not user:
-        abort(400)
-    return jsonify({'username': user.username})
-
-
-@app.route('/api/token')
-@auth.login_required
-def get_auth_token():
-    token = g.user.generate_auth_token(600)
-    return jsonify({'token': token.decode('ascii'), 'duration': 600})
+@ns_users.route('/')
+class UserPostRoute(Resource):
+    @ns_users.doc('user_create')
+    @api.expect(user_model)
+    def post(self):
+        '''Post new user. Checks for Login key'''
+        username = request.json.get('username')
+        password = request.json.get('password')
+        login_key = request.json.get('login_key')
+        if username is None or password is None:
+            abort(400)    # missing arguments
+        if User.query.filter_by(username=username).first() is not None:
+            abort(400)    # existing user
+        if login_key != LOGIN_KEY:
+            abort(403)  # missing login key
+        user = User(username=username)
+        user.hash_password(password)
+        db.session.add(user)
+        db.session.commit()
+        return jsonify({'username': user.username})
 
 
-@app.route('/api/resource')
-@auth.login_required
-def get_resource():
-    return jsonify({'data': 'Hello, %s!' % g.user.username})
+@ns_users.route('/token')
+class TokenRoute(Resource):
+    @ns_users.doc('user_token')
+    @auth.login_required
+    def get(self):
+        token = g.user.generate_auth_token(600)
+        return jsonify({'token': token.decode('ascii'), 'duration': 600})
 
+@ns_users.route('/resource')
+class ResourceRoute(Resource):
+    @ns_users.doc('user_resource')
+    @auth.login_required
+    def get(self):
+        return jsonify({'data': 'Success {}'.format(g.user.username)})
 
 
 #################
@@ -385,7 +393,7 @@ def request_to_class(dbclass,json_request):
 ###################
 ### COLLECTIONS ###
 ###################
-ns_collection = api.namespace('collections', description='Collection definitions')
+ns_collection = api.namespace('collections', description='Collections')
 collection_model = api.model("collection", {
     "name": fields.String(),
     "readme": fields.String(),
@@ -458,7 +466,7 @@ class CollectionAllRoute(Resource):
 #############
 
 # TODO self insert dat gene_id
-ns_part = api.namespace('parts', description='Part definitions')
+ns_part = api.namespace('parts', description='Parts')
 part_model = api.model("part", {
     "name": fields.String(),
     "description": fields.String(),
@@ -816,7 +824,7 @@ class SequencingRoute(Resource):
 ###############
 ### AUTHORS ###
 ###############
-ns_author = api.namespace('authors', description='OpenFoundry Authors')
+ns_author = api.namespace('authors', description='Authors')
 author_model = api.model("author", {
     "name": fields.String(),
     "email": fields.String(),
