@@ -537,7 +537,13 @@ class PartRoute(Resource):
         db.session.commit()
         return jsonify(updated_part.toJSON())
 
-
+@ns_part.route('/geneid/<gene_id>')
+class PartGeneID(Resource):
+    '''Shows a single part'''
+    @ns_part.doc('part_geneid_get')
+    def get(self,gene_id):
+        '''Get a single part'''
+        return jsonify(Part.query.filter_by(gene_id=gene_id).first().toJSON())
 
 #################
 ### PROTOCOLS ###
@@ -640,6 +646,7 @@ class PlateRoute(Resource):
         '''Delete a single plate'''
         db.session.delete(Plate.query.get(uuid))
         db.session.commit()
+        return jsonify({'success':True})
 
     @ns_plate.doc('plate_put')
     @api.expect(plate_model)
@@ -649,6 +656,7 @@ class PlateRoute(Resource):
         edit = Plate.query.filter_by(uuid=uuid).first()
         edit = request_to_class(edit,request.get_json())
         db.session.commit()
+        return jsonify({'success':True})
 
 
 ###############
@@ -694,6 +702,7 @@ class SampleRoute(Resource):
         '''Delete a single sample'''
         db.session.delete(Sample.query.get(uuid))
         db.session.commit()
+        return jsonify({'success':True})
 
     @ns_sample.doc('sample_put')
     @api.expect(sample_model)
@@ -703,6 +712,7 @@ class SampleRoute(Resource):
         edit = Sample.query.filter_by(uuid=uuid).first()
         edit = request_to_class(edit,request.get_json())
         db.session.commit()
+        return jsonify({'success':True})
 
 
 #############
@@ -757,6 +767,7 @@ class WellRoute(Resource):
         '''Delete a single well'''
         db.session.delete(Well.query.get(uuid))
         db.session.commit()
+        return jsonify({'success':True})
 
     @ns_well.doc('well_put')
     @api.expect(well_model)
@@ -766,6 +777,7 @@ class WellRoute(Resource):
         edit = Well.query.filter_by(uuid=uuid).first()
         edit = request_to_class(edit,request.get_json())
         db.session.commit()
+        return jsonify({'success':True})
 
 ##################
 ### SEQUENCING ###
@@ -816,6 +828,7 @@ class SequencingRoute(Resource):
         '''Delete a single sequencing'''
         db.session.delete(Sequencing.query.get(uuid))
         db.session.commit()
+        return jsonify({'success':True})
 
     @ns_sequencing.doc('sequencing_put')
     @api.expect(sequencing_model)
@@ -827,6 +840,7 @@ class SequencingRoute(Resource):
         sequencing.description = request.get_json().get('description')
         sequencing.sequencing = request.get_json().get('sequencing')
         db.session.commit()
+        return jsonify({'success':True})
 
 ###############
 ### AUTHORS ###
@@ -872,6 +886,7 @@ class AuthorRoute(Resource):
         '''Delete a single author'''
         db.session.delete(Author.query.get(uuid))
         db.session.commit()
+        return jsonify({'success':True})
 
     @ns_author.doc('author_put')
     @api.expect(author_model)
@@ -883,6 +898,7 @@ class AuthorRoute(Resource):
         author.description = request.get_json().get('description')
         author.author = request.get_json().get('author')
         db.session.commit()
+        return jsonify({'success':True})
 
 
 if __name__ == '__main__' and DEV == True:
