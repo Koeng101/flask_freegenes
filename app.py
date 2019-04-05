@@ -23,7 +23,7 @@ from config import URL
 from config import SECRET_KEY
 from config import DEV
 from config import LOGIN_KEY
-
+from config import PREFIX
 # initialization
 app = Flask(__name__)
 app.config['SECRET_KEY'] = SECRET_KEY
@@ -33,7 +33,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # extensions
 db = SQLAlchemy(app)
 auth = HTTPBasicAuth()
-api = Api(app, version='1.0', title='FreeGenes Collections',
+api = Api(app, version='1.1', title='FreeGenes Collections',
             description='FreeGenes API',
             )
 migrate = Migrate(app, db)
@@ -140,7 +140,7 @@ tags_parts = db.Table('tags_parts',
     db.Column('part_uuid', UUID(as_uuid=True), db.ForeignKey('parts.uuid'),primary_key=True,nullable=True),
 )
 
-# Virtuals
+# Think things
 class Collection(db.Model):
     __tablename__ = 'collections'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -202,6 +202,7 @@ class Part(db.Model):
     primer_for = db.Column(db.String)
     primer_rev = db.Column(db.String)
     barcode = db.Column(db.String)
+    translation = db.Column(db.String)
 
     vbd = db.Column(db.String)
     resistance = db.Column(db.String) # amp,kan,cam
@@ -219,7 +220,7 @@ class Part(db.Model):
     def toJSON(self):
         tags = []
         for tag in self.tags:
-            tags.append(tag.tag)
+                tags.append(tag.tag)
         # Return collection ID as well
         return {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':tags,'name':self.name,'description':self.description,'gene_id':self.gene_id,'part_type':self.part_type,'original_sequence':self.original_sequence,'optimized_sequence':self.optimized_sequence,'synthesized_sequence':self.synthesized_sequence,'full_sequence':self.full_sequence,'genbank':self.genbank,'vector':self.vector,'primer_for':self.primer_for,'primer_rev':self.primer_rev,'barcode':self.barcode,'vbd':self.vbd,'resistance':self.resistance,'samples':[sample.uuid for sample in self.samples],'author_uuid':self.author_uuid}
 
@@ -231,7 +232,7 @@ class Tag(db.Model):
     def toJSON(self):
         return {'tag':tag}
 
-# Robot 
+# Do things
 class Robot(db.Model):
     __tablename__ = 'robots'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -251,12 +252,13 @@ class Protocol(db.Model):
 
     status = db.Column(db.String(), default='planned') # planned, executed 
     plates = db.relationship('Plate',backref='protocol') # TODO ADD plates in toJSON
+    protocol_type = db.Column(db.String()) # human, opentrons
 
     def toJSON(self):
-        return {'uuid': self.uuid, 'description': self.description, 'protocol': self.protocol, 'status': self.status, 'plates': [plate.uuid for plate in self.plates]}
+        return {'uuid': self.uuid, 'description': self.description, 'protocol': self.protocol, 'status': self.status, 'plates': [plate.uuid for plate in self.plates], 'protocol_type':self.protocol_type}
 
 
-# Plates, wells, samples
+# Are things
 
 samples_wells = db.Table('samples_wells',
     db.Column('samples_uuid', UUID(as_uuid=True), db.ForeignKey('samples.uuid'), primary_key=True),
@@ -291,12 +293,12 @@ class Sample(db.Model):
     derived_from = db.Column(UUID, db.ForeignKey('samples.uuid'), nullable=True)
 
 
-    sequencing= db.relationship('Sequencing',backref='samples')
+    pileups = db.relationship('Pileup',backref='sample')
     wells = db.relationship('Well', secondary=samples_wells, lazy='subquery',
         backref=db.backref('samples', lazy=True))
 
     def toJSON(self, wells=True, part=False):
-        return {'uuid':self.uuid,'derived_from':self.derived_from,'wells':[well.uuid for well in self.wells],'part_uuid':self.part_uuid}
+        return {'uuid':self.uuid,'derived_from':self.derived_from,'wells':[well.uuid for well in self.wells],'part_uuid':self.part_uuid,'pileups':[pileup.uuid for pileup in self.pileups]}
 
 class Well(db.Model): # Constrain Wells to being unique to each plate
     __tablename__ = 'wells'
@@ -319,46 +321,66 @@ class Well(db.Model): # Constrain Wells to being unique to each plate
         return {'uuid':self.uuid,'address':self.address,'volume':self.volume,'quantity':self.quantity,'media':self.media,'well_type':self.well_type,'organism':self.organism,'plate_uuid':self.plate_uuid,'samples':[sample.uuid for sample in self.samples]} 
 
 
-# Sequencing
-
-class Sequencing(db.Model):
-    __tablename__ = 'sequencing'
+# Verify things
+class Seqrun(db.Model):
+    __tablename__ = 'seqruns'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
-    sequencing_id = db.Column(db.String) # Sequencing provider id
-    sequencing_notes = db.Column(db.String)
-
+    run_id = db.Column(db.String) # Sequencing provider id
+    notes = db.Column(db.String)
     sequencing_type = db.Column(db.String) # illumina, nanopore, etc
-    machine = db.Column(db.String) # Minion, iseq, etc
-    sequencing_provider = db.Column(db.String)
-    status = db.Column(db.String) # mutation,confirmed,etc
-    sequence = db.Column(db.String) 
+    machine = db.Column(db.String) # minion, iseq, etc
+    provider = db.Column(db.String) # in-house
 
-    pileups= db.relationship('Pileup',backref='sequencing')
-
-    sample_uuid = db.Column(UUID, db.ForeignKey('samples.uuid'),
-            nullable=False)
+    fastqs = db.relationship('Fastq',backref='seqrun')
 
     def toJSON(self):
-        return {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'sequencing_id':self.sequencing_id,'sequencing_notes':self.sequencing_notes,'sequencing_type':self.sequencing_type,'machine':self.machine,'sequencing_provider':self.sequencing_provider,'sequence':self.sequence, 'sample_uuid':self.sample_uuid, 'pileups':[pileup.toJSON() for pileup in self.pileups]}
+        return {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'run_id':self.run_id,'notes':self.notes,'sequencing_type':self.sequencing_type,'machine':self.machine,'provider':self.provider, 'fastqs': [fastq.uuid for fastq in self.fastqs]}
+
+
+
+pileup_fastq = db.Table('pileup_fastq',
+    db.Column('pileup_uuid', UUID(as_uuid=True), db.ForeignKey('pileups.uuid'), primary_key=True),
+    db.Column('fastq_uuid', UUID(as_uuid=True), db.ForeignKey('fastqs.uuid'),primary_key=True,nullable=True),
+)
 
 class Pileup(db.Model):
     __tablename__ = 'pileups'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
-    sequence = db.Column(db.String) # geneid. Yes, not normalized: but makes everything more simple
-    position = db.Column(db.Integer) # Integer position
-    reference_base = db.Column(db.String) # A,T,G,C
-    read_count = db.Column(db.Integer) # 24
-    read_results = db.Column(db.String) # ,.$.....,,.,.,...,,,.,..^+.	
-    quality = db.Column(db.String) # <<<+;<<<<<<<<<<<=<;<;7<&
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
-    sequencing_uuid = db.Column(UUID, db.ForeignKey('sequencing.uuid'),
-            nullable=True)
+    status = db.Column(db.String) # mutation,confirmed,etc
+    full_search_sequence = db.Column(db.String)
+    target_sequence = db.Column(db.String) 
+    pileup_link = db.Column(db.String)
 
+    sample_uuid = db.Column(UUID, db.ForeignKey('samples.uuid'),
+            nullable=False)
+    fastqs = db.relationship('Fastq', secondary=pileup_fastq, lazy='subquery',
+        backref=db.backref('pileups', lazy=True))
+    
     def toJSON(self):
-        return {'sequence':self.sequence,'position':self.position,'reference_base':self.reference_base,'read_count':self.read_count,'read_results':self.read_results,'quality':self.quality}
+        return {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'full_search_sequence':self.full_search_sequence,'target_sequence':self.target_sequence,'pileup_link':self.pileup_link, 'sample_uuid': self.sample_uuid,'fastqs':[fastq.uuid for fastq in self.fastqs]}
+
+
+class Fastq(db.Model):
+    __tablename__ = 'fastqs'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+    seqrun_uuid = db.Column(UUID, db.ForeignKey('seqruns.uuid'), nullable=False)
+    fastq_link = db.Column(db.String)
+    raw_link = db.Column(db.String) # gz zipped
+
+    index_for = db.Column(db.String)
+    index_rev = db.Column(db.String)
+    
+    def toJSON(self):
+        return {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'seqrun_uuid':self.seqrun_uuid,'fastq_link':self.fastq_link,'index_for':self.index_for,'index_rev':self.index_rev,'pileups': [pileup.uuid for pileup in self.pileups]}
+
 
 def request_to_class(dbclass,json_request):
     tags = []
@@ -379,16 +401,22 @@ def request_to_class(dbclass,json_request):
             [dbclass.samples.append(Well.query.filter_by(uuid=uuid).first()) for uuid in v]
         elif k == 'derived_from' and v == "":
             pass
-        elif k == 'pileups' and v != []:
-            dbclass.pileups = []
-            for pileup in v:
-                new_pileup = request_to_class(Pileup,pileup)
-                dbclass.pileups.append(new_pileup)
+        elif k == 'fastqs' and v != []:
+            dbclass.fastqs = []
+            [dbclass.fastqs.append(Fastq.query.filter_by(uuid=uuid).first()) for uuid in v]
         else:
             setattr(dbclass,k,v)
     for tag in tags:
         dbclass.tags.append(tag)
     return dbclass
+
+def next_gene_id():
+    result = db.engine.execute("SELECT parts.gene_id FROM parts ORDER BY gene_id DESC LIMIT 1")
+    for r in result:
+        last_id = r
+    last_num = int(last_id[0][-6:])
+    new_id = PREFIX + str(last_num+1).zfill(6)
+    return new_id
 
 ###################
 ### COLLECTIONS ###
@@ -658,6 +686,24 @@ class PlateRoute(Resource):
         db.session.commit()
         return jsonify({'success':True})
 
+@ns_plate.route('/full/<uuid>')
+class PlateFullRoute(Resource):
+    @ns_plate.doc('plate_full_get')
+    def get(self,uuid):
+        '''Get a single plate and down the tree'''
+
+        plate = Plate.query.filter_by(uuid=uuid).first().toJSON()
+        wells = []
+        for well in plate['wells']:
+            new_well = Well.query.filter_by(uuid=well).first().toJSON()
+            new_well['samples'] = [Sample.query.filter_by(uuid=sample).first().toJSON() for sample in new_well['samples']]
+            wells.append(new_well)
+        plate['wells'] = wells
+        return jsonify(plate)
+
+
+
+        
 
 ###############
 ### Sample ####
@@ -779,68 +825,6 @@ class WellRoute(Resource):
         db.session.commit()
         return jsonify({'success':True})
 
-##################
-### SEQUENCING ###
-##################
-
-ns_sequencing = api.namespace('sequencing', description='OpenFoundry Sequencing')
-sequencing_model = api.model("sequencing", {
-    "status": fields.String(),
-    "sequencing_id": fields.Raw(),
-    "sequencing_notes": fields.String(),
-    "sequencing_type": fields.String(), # nanopore, illumina
-    "machine": fields.String(),
-    "sequencing_provider": fields.String(),
-    "sample_uuid": fields.String(),
-    "pileups": fields.List(fields.Raw),
-    })
-
-@ns_sequencing.route('/')
-class SequencingListRoute(Resource):
-    '''Shows all sequencings and allows you to post new sequencings'''
-    @ns_sequencing.doc('sequencing_list')
-    def get(self):
-        '''Lists all sequencings'''
-        return jsonify([sequencing.toJSON() for sequencing in Sequencing.query.all()])
-
-    @ns_sequencing.doc('sequencing_create')
-    @api.expect(sequencing_model)
-    @auth.login_required
-    def post(self):
-        '''Create new sequencing'''
-        # TODO add schema validator
-        sequencing = request_to_class(Sequencing(),request.get_json())
-        db.session.add(sequencing)
-        db.session.commit()
-        return jsonify(sequencing.toJSON())
-
-@ns_sequencing.route('/<uuid>')
-class SequencingRoute(Resource):
-    '''Shows a single sequencing and allows you to delete or update preexisting sequencings'''
-    @ns_sequencing.doc('sequencing_get')
-    def get(self,uuid):
-        '''Get a single sequencing'''
-        return jsonify(Sequencing.query.filter_by(uuid=uuid).first().toJSON())
-
-    @ns_sequencing.doc('sequencing_delete')
-    @auth.login_required
-    def delete(self,uuid):
-        '''Delete a single sequencing'''
-        db.session.delete(Sequencing.query.get(uuid))
-        db.session.commit()
-        return jsonify({'success':True})
-
-    @ns_sequencing.doc('sequencing_put')
-    @api.expect(sequencing_model)
-    @auth.login_required
-    def put(self,uuid):
-        '''Update a single sequencing'''
-        # TODO add schema validator
-        sequencing = Sequencing.query.filter_by(uuid=uuid).first()
-        sequencing.description = request.get_json().get('description')
-        sequencing.sequencing = request.get_json().get('sequencing')
-        db.session.commit()
-        return jsonify({'success':True})
 
 ###############
 ### AUTHORS ###
@@ -878,6 +862,7 @@ class AuthorRoute(Resource):
     @ns_author.doc('author_get')
     def get(self,uuid):
         '''Get a single author'''
+        next_gene_id()
         return jsonify(Author.query.filter_by(uuid=uuid).first().toJSON())
 
     @ns_author.doc('author_delete')
@@ -897,6 +882,184 @@ class AuthorRoute(Resource):
         author = Author.query.filter_by(uuid=uuid).first()
         author.description = request.get_json().get('description')
         author.author = request.get_json().get('author')
+        db.session.commit()
+        return jsonify({'success':True})
+
+###############
+### PILEUPS ###
+###############
+ns_pileup = api.namespace('pileups', description='Pileups')
+pileup_model = api.model("pileup", {
+    "status": fields.String(),
+    "full_search_sequence": fields.String(),
+    "target_sequence": fields.String(),
+    "pileup_link": fields.String(),
+    "fastqs": fields.String(),
+    "sample_uuid": fields.String()
+    })
+
+@ns_pileup.route('/')
+class PileupListRoute(Resource):
+    '''Shows all pileups and allows you to post new pileups'''
+    @ns_pileup.doc('pileup_list')
+    def get(self):
+        '''Lists all pileups'''
+        return jsonify([pileup.toJSON() for pileup in Pileup.query.all()])
+
+    @ns_pileup.doc('pileup_create')
+    @api.expect(pileup_model)
+    @auth.login_required
+    def post(self):
+        '''Create new pileup'''
+        # TODO add schema validator
+        pileup = request_to_class(Pileup(),request.get_json())
+        db.session.add(pileup)
+        db.session.commit()
+        return jsonify(pileup.toJSON())
+
+@ns_pileup.route('/<uuid>')
+class PileupRoute(Resource):
+    '''Shows a single pileup and allows you to delete or update preexisting pileups'''
+    @ns_pileup.doc('pileup_get')
+    def get(self,uuid):
+        '''Get a single pileup'''
+        return jsonify(Pileup.query.filter_by(uuid=uuid).first().toJSON())
+
+    @ns_pileup.doc('pileup_delete')
+    @auth.login_required
+    def delete(self,uuid):
+        '''Delete a single pileup'''
+        db.session.delete(Pileup.query.get(uuid))
+        db.session.commit()
+        return jsonify({'success':True})
+
+    @ns_pileup.doc('pileup_put')
+    @api.expect(pileup_model)
+    @auth.login_required
+    def put(self,uuid):
+        '''Update a single pileup'''
+        # TODO add schema validator
+        pileup = Pileup.query.filter_by(uuid=uuid).first()
+        pileup.description = request.get_json().get('description')
+        pileup.pileup = request.get_json().get('pileup')
+        db.session.commit()
+        return jsonify({'success':True})
+
+##############
+### SEQRUN ###
+##############
+ns_seqrun = api.namespace('seqruns', description='Seqruns')
+seqrun_model = api.model("seqrun", {
+    "run_id": fields.String(),
+    "notes": fields.String(),
+    "sequencing_type": fields.String(),
+    "machine": fields.String(),
+    "provider": fields.String(),
+    })
+
+@ns_seqrun.route('/')
+class SeqrunListRoute(Resource):
+    '''Shows all seqruns and allows you to post new seqruns'''
+    @ns_seqrun.doc('seqrun_list')
+    def get(self):
+        '''Lists all seqruns'''
+        return jsonify([seqrun.toJSON() for seqrun in Seqrun.query.all()])
+
+    @ns_seqrun.doc('seqrun_create')
+    @api.expect(seqrun_model)
+    @auth.login_required
+    def post(self):
+        '''Create new seqrun'''
+        # TODO add schema validator
+        seqrun = request_to_class(Seqrun(),request.get_json())
+        db.session.add(seqrun)
+        db.session.commit()
+        return jsonify(seqrun.toJSON())
+
+@ns_seqrun.route('/<uuid>')
+class SeqrunRoute(Resource):
+    '''Shows a single seqrun and allows you to delete or update preexisting seqruns'''
+    @ns_seqrun.doc('seqrun_get')
+    def get(self,uuid):
+        '''Get a single seqrun'''
+        return jsonify(Seqrun.query.filter_by(uuid=uuid).first().toJSON())
+
+    @ns_seqrun.doc('seqrun_delete')
+    @auth.login_required
+    def delete(self,uuid):
+        '''Delete a single seqrun'''
+        db.session.delete(Seqrun.query.get(uuid))
+        db.session.commit()
+        return jsonify({'success':True})
+
+    @ns_seqrun.doc('seqrun_put')
+    @api.expect(seqrun_model)
+    @auth.login_required
+    def put(self,uuid):
+        '''Update a single seqrun'''
+        # TODO add schema validator
+        seqrun = Seqrun.query.filter_by(uuid=uuid).first()
+        seqrun.description = request.get_json().get('description')
+        seqrun.seqrun = request.get_json().get('seqrun')
+        db.session.commit()
+        return jsonify({'success':True})
+
+#############
+### FASTQ ###
+#############
+ns_fastq = api.namespace('fastqs', description='Fastqs')
+fastq_model = api.model("fastq", {
+    "seqrun_uuid": fields.String(),
+    "fastq_link": fields.String(),
+    "raw_link": fields.String(),
+    "index_for": fields.String(),
+    "index_rev": fields.String(),
+    })
+
+@ns_fastq.route('/')
+class FastqListRoute(Resource):
+    '''Shows all fastqs and allows you to post new fastqs'''
+    @ns_fastq.doc('fastq_list')
+    def get(self):
+        '''Lists all fastqs'''
+        return jsonify([fastq.toJSON() for fastq in Fastq.query.all()])
+
+    @ns_fastq.doc('fastq_create')
+    @api.expect(fastq_model)
+    @auth.login_required
+    def post(self):
+        '''Create new fastq'''
+        # TODO add schema validator
+        fastq = request_to_class(Fastq(),request.get_json())
+        db.session.add(fastq)
+        db.session.commit()
+        return jsonify(fastq.toJSON())
+
+@ns_fastq.route('/<uuid>')
+class FastqRoute(Resource):
+    '''Shows a single fastq and allows you to delete or update preexisting fastqs'''
+    @ns_fastq.doc('fastq_get')
+    def get(self,uuid):
+        '''Get a single fastq'''
+        return jsonify(Fastq.query.filter_by(uuid=uuid).first().toJSON())
+
+    @ns_fastq.doc('fastq_delete')
+    @auth.login_required
+    def delete(self,uuid):
+        '''Delete a single fastq'''
+        db.session.delete(Fastq.query.get(uuid))
+        db.session.commit()
+        return jsonify({'success':True})
+
+    @ns_fastq.doc('fastq_put')
+    @api.expect(fastq_model)
+    @auth.login_required
+    def put(self,uuid):
+        '''Update a single fastq'''
+        # TODO add schema validator
+        fastq = Fastq.query.filter_by(uuid=uuid).first()
+        fastq.description = request.get_json().get('description')
+        fastq.fastq = request.get_json().get('fastq')
         db.session.commit()
         return jsonify({'success':True})
 

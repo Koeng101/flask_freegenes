@@ -1,3 +1,4 @@
 SECRET_KEY = ''
 URL = 'postgres://'
 DEV = True
+PREFIX = ''
