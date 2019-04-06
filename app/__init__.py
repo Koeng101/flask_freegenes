@@ -28,6 +28,8 @@ from .config import PREFIX
 from .models import db
 
 from .routes import api as collection
+from .routes import ns_users as ns_users
+
 
 # initialization
 app = Flask(__name__)
@@ -41,9 +43,9 @@ auth = HTTPBasicAuth()
 api = Api(app, version='1.1', title='FreeGenes Collections',
             description='FreeGenes API',
             )
-
-api.add_namespace(collection)
 migrate = Migrate(app, db)
+
+api.add_namespace(ns_users)
 
 if DEV == True:
     app.run(debug=True)

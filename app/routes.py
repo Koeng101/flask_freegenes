@@ -2,6 +2,7 @@ from .models import *
 from flask_restplus import Api, Resource, fields, Namespace
 from flask import Flask, abort, request, jsonify, g, url_for
 
+from .config import LOGIN_KEY
 # Abstractions
 def request_to_class(dbclass,json_request):
     tags = []
@@ -49,6 +50,53 @@ def crud_put(cls,uuid,post,database):
     updated_obj = request_to_class(obj,post)
     db.session.commit()
     return jsonify(obj.toJSON())
+
+# Users
+ns_users = Namespace('users', description='User login')
+user_model = ns_users.model("user", {
+    "username": fields.String(),
+    "password": fields.String(),
+    "login_key": fields.String()
+    })
+
+@ns_users.route('/')
+class UserPostRoute(Resource):
+    @ns_users.doc('user_create')
+    @ns_users.expect(user_model)
+    def post(self):
+        '''Post new user. Checks for Login key'''
+        username = request.json.get('username')
+        password = request.json.get('password')
+        login_key = request.json.get('login_key')
+        if username is None or password is None:
+            abort(400)    # missing arguments
+        if User.query.filter_by(username=username).first() is not None:
+            abort(400)    # existing user
+        if login_key != LOGIN_KEY:
+            abort(403)  # missing login key
+        user = User(username=username)
+        user.hash_password(password)
+        db.session.add(user)
+        db.session.commit()
+        return jsonify({'username': user.username})
+
+@ns_users.route('/token')
+class TokenRoute(Resource):
+    @ns_users.doc('user_token')
+    @auth.login_required
+    def get(self):
+        token = g.user.generate_auth_token(600)
+        return jsonify({'token': token.decode('ascii'), 'duration': 600})
+
+@ns_users.route('/resource')
+class ResourceRoute(Resource):
+    @ns_users.doc('user_resource')
+    @auth.login_required
+    def get(self):
+        return jsonify({'data': 'Success {}'.format(g.user.username)})
+
+
+
 
 ###################
 ### COLLECTIONS ###
