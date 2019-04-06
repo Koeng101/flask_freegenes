@@ -27,9 +27,9 @@ from .config import PREFIX
 
 from .models import db
 
-from .routes import api as collection
-from .routes import ns_users as ns_users
-
+from .routes import ns_users 
+from .routes import ns_collection 
+from .routes import ns_part 
 
 # initialization
 app = Flask(__name__)
@@ -46,9 +46,11 @@ api = Api(app, version='1.1', title='FreeGenes Collections',
 migrate = Migrate(app, db)
 
 api.add_namespace(ns_users)
+api.add_namespace(ns_collection)
+api.add_namespace(ns_part)
 
-if DEV == True:
+if __name__ == '__main__' and DEV == True:
     app.run(debug=True)
-elif DEV == False:
+elif __name__ == '__main__' and DEV == False:
     app.run(host='0.0.0.0')
 

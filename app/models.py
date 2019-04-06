@@ -88,11 +88,15 @@ class Collection(db.Model):
     name = db.Column(db.String)
     readme = db.Column(db.String)
 
-    def toJSON(self):
+    def toJSON(self,full=None):
         tags = []
         for tag in self.tags:
             tags.append(tag.tag)
-        return {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':tags,'name':self.name,'readme':self.readme,'parent_uuid':self.parent_uuid,'parts': [part.uuid for part in self.parts]}
+        dictionary = {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':tags,'name':self.name,'readme':self.readme,'parent_uuid':self.parent_uuid}
+        if full=='full':
+            dictionary['parts'] = [part.uuid for part in self.parts]
+        return dictionary
+
 
 
 class Author(db.Model):
@@ -104,8 +108,11 @@ class Author(db.Model):
     orcid = db.Column(db.String)
     parts = db.relationship('Part',backref='author')
 
-    def toJSON(self):
-        return {'uuid':self.uuid,'name':self.name,'email':self.email,'affiliation':self.affiliation,'orcid':self.orcid,'parts':[part.uuid for part in self.parts]}
+    def toJSON(self,full=None):
+        dictionary = {'uuid':self.uuid,'name':self.name,'email':self.email,'affiliation':self.affiliation,'orcid':self.orcid}
+        if full=='full':
+            dictionary['parts'] = [part.uuid for part in self.parts]
+        return dictionary
 
 class Organism(db.Model):
     __tablename__ = 'organisms'
@@ -158,20 +165,20 @@ class Part(db.Model):
     samples = db.relationship('Sample',backref='part')
 
 
-    def toJSON(self):
+    def toJSON(self,full=None):
         tags = []
         for tag in self.tags:
                 tags.append(tag.tag)
         # Return collection ID as well
-        return {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':tags,'name':self.name,'description':self.description,'gene_id':self.gene_id,'part_type':self.part_type,'original_sequence':self.original_sequence,'optimized_sequence':self.optimized_sequence,'synthesized_sequence':self.synthesized_sequence,'full_sequence':self.full_sequence,'genbank':self.genbank,'vector':self.vector,'primer_for':self.primer_for,'primer_rev':self.primer_rev,'barcode':self.barcode,'vbd':self.vbd,'author_uuid':self.author_uuid, 'samples': [sample.uuid for sample in self.samples]}
+        dictionary = {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':tags,'name':self.name,'description':self.description,'gene_id':self.gene_id,'part_type':self.part_type,'original_sequence':self.original_sequence,'optimized_sequence':self.optimized_sequence,'synthesized_sequence':self.synthesized_sequence,'full_sequence':self.full_sequence,'genbank':self.genbank,'vector':self.vector,'primer_for':self.primer_for,'primer_rev':self.primer_rev,'barcode':self.barcode,'vbd':self.vbd,'author_uuid':self.author_uuid}
+        if full=='full':
+            dictionary['samples'] = [sample.uuid for sample in self.samples]
+        return dictionary
 
 class Tag(db.Model):
     __tablename__ = 'tags'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     tag = db.Column(db.String)
-
-    def toJSON(self):
-        return {'tag':tag}
 
 # Do things
 class Robot(db.Model):
@@ -195,9 +202,11 @@ class Protocol(db.Model):
     plates = db.relationship('Plate',backref='protocol') # TODO ADD plates in toJSON
     protocol_type = db.Column(db.String()) # human, opentrons
 
-    def toJSON(self):
-        return {'uuid': self.uuid, 'description': self.description, 'protocol': self.protocol, 'status': self.status, 'plates': [plate.uuid for plate in self.plates], 'protocol_type':self.protocol_type}
-
+    def toJSON(self,full=None):
+        dictionary= {'uuid': self.uuid, 'description': self.description, 'protocol': self.protocol, 'status': self.status, 'protocol_type':self.protocol_type}
+        if full=='full':
+            dictionary['plates'] = [plate.uuid for plate in self.plates]
+        return dictionary
 
 # Are things
 
@@ -216,8 +225,11 @@ class Plate(db.Model):
     protocol_uuid = db.Column(UUID, db.ForeignKey('protocols.uuid'), nullable=True)
     location = db.Column(db.String)
 
-    def toJSON(self):
-        return {'uuid': self.uuid, 'plate_name': self.plate_name, 'plate_form': self.plate_form, 'plate_type': self.plate_type, 'status': self.status, 'protocol_uuid':self.protocol_uuid, 'wells':[well.uuid for well in self.wells]}
+    def toJSON(self,full=None):
+        dictionary= {'uuid': self.uuid, 'plate_name': self.plate_name, 'plate_form': self.plate_form, 'plate_type': self.plate_type, 'status': self.status, 'protocol_uuid':self.protocol_uuid}
+        if full=='full':
+            dictionary['wells'] = [well.uuid for well in self.wells]
+        return dictionary
 
 
 
@@ -240,8 +252,12 @@ class Sample(db.Model):
     wells = db.relationship('Well', secondary=samples_wells, lazy='subquery',
         backref=db.backref('samples', lazy=True))
 
-    def toJSON(self, wells=True, part=False):
-        return {'uuid':self.uuid,'derived_from':self.derived_from,'part_uuid':self.part_uuid,'wells':[well.uuid for well in self.wells],'pileups':[pileup.uuid for pileup in self.pileups]}
+    def toJSON(self, full=None):
+        dictionary= {'uuid':self.uuid,'derived_from':self.derived_from,'part_uuid':self.part_uuid}
+        if full=='full':
+            dictionary['wells'] = [well.uuid for well in self.wells]
+            dictionary['pileups'] = [pileup.uuid for pileup in self.pileups]
+        return dictionary
 
 class Well(db.Model): # Constrain Wells to being unique to each plate
     __tablename__ = 'wells'
@@ -257,13 +273,14 @@ class Well(db.Model): # Constrain Wells to being unique to each plate
     well_type = db.Column(db.String(32)) # glycerol,grown,purified_dna,pcr,gdna,etc
     organism = db.Column(db.String)
 
-
-
     plate_uuid = db.Column(UUID, db.ForeignKey('plates.uuid'),
             nullable=False)
 
-    def toJSON(self):
-        return {'uuid':self.uuid,'address':self.address,'volume':self.volume,'quantity':self.quantity,'media':self.media,'well_type':self.well_type,'organism':self.organism,'plate_uuid':self.plate_uuid,'samples':[sample.uuid for sample in self.samples]} 
+    def toJSON(self,full=None):
+        dictionary={'uuid':self.uuid,'address':self.address,'volume':self.volume,'quantity':self.quantity,'media':self.media,'well_type':self.well_type,'organism':self.organism,'plate_uuid':self.plate_uuid} 
+        if full=='full':
+            dictionary['samples'] = [sample.uuid for sample in self.samples]
+        return dictionary
 
 
 # Verify things
@@ -281,8 +298,11 @@ class Seqrun(db.Model):
 
     fastqs = db.relationship('Fastq',backref='seqrun')
 
-    def toJSON(self):
-        return {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'run_id':self.run_id,'notes':self.notes,'sequencing_type':self.sequencing_type,'machine':self.machine,'provider':self.provider, 'fastqs': [fastq.uuid for fastq in self.fastqs]}
+    def toJSON(self,full=None):
+        dictionary= {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'run_id':self.run_id,'notes':self.notes,'sequencing_type':self.sequencing_type,'machine':self.machine,'provider':self.provider}
+        if full=='full':
+            dictionary['fastqs'] = [fastq.uuid for fastq in self.fastqs]
+        return dictionary
 
 
 
@@ -307,9 +327,11 @@ class Pileup(db.Model):
     fastqs = db.relationship('Fastq', secondary=pileup_fastq, lazy='subquery',
         backref=db.backref('pileups', lazy=True))
     
-    def toJSON(self):
-        return {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'full_search_sequence':self.full_search_sequence,'target_sequence':self.target_sequence,'pileup_link':self.pileup_link, 'sample_uuid': self.sample_uuid,'fastqs':[fastq.uuid for fastq in self.fastqs]}
-
+    def toJSON(self,full=None):
+        dictionary= {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'full_search_sequence':self.full_search_sequence,'target_sequence':self.target_sequence,'pileup_link':self.pileup_link, 'sample_uuid': self.sample_uuid}
+        if full=='full':
+            dictionary['fastqs'] = [fastq.uuid for fastq in self.fastqs]
+        return dictionary
 
 class Fastq(db.Model):
     __tablename__ = 'fastqs'
@@ -323,7 +345,9 @@ class Fastq(db.Model):
     index_for = db.Column(db.String)
     index_rev = db.Column(db.String)
     
-    def toJSON(self):
-        return {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'seqrun_uuid':self.seqrun_uuid,'fastq_link':self.fastq_link,'index_for':self.index_for,'index_rev':self.index_rev,'pileups': [pileup.uuid for pileup in self.pileups]}
-
+    def toJSON(self,full=None):
+        dictionary= {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'seqrun_uuid':self.seqrun_uuid,'fastq_link':self.fastq_link,'index_for':self.index_for,'index_rev':self.index_rev}
+        if full=='full':
+            dictionary['pileups'] = [pileup.uuid for pileup in self.pileups]
+        return dictionary
 

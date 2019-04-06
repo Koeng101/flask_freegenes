@@ -3,7 +3,7 @@ from flask_restplus import Api, Resource, fields, Namespace
 from flask import Flask, abort, request, jsonify, g, url_for
 
 from .config import LOGIN_KEY
-# Abstractions
+
 def request_to_class(dbclass,json_request):
     tags = []
     for k,v in json_request.items():
@@ -32,26 +32,81 @@ def request_to_class(dbclass,json_request):
         dbclass.tags.append(tag)
     return dbclass
 
-def crud_get_list(cls):
-    return jsonify([obj.toJSON() for obj in cls.query.all()])
+def crud_get_list(cls,full=None):
+    return jsonify([obj.toJSON(full=full) for obj in cls.query.all()])
+
 def crud_post(cls,post,database):
     obj = request_to_class(cls(),post)
     database.session.add(obj)
     database.session.commit()
     return jsonify(obj.toJSON())
-def crud_get(cls,uuid):
-    return jsonify(cls.query.filter_by(uuid=uuid).first().toJSON())
+
+def crud_get(cls,uuid,full=None):
+    return jsonify(cls.query.filter_by(uuid=uuid).first().toJSON(full=full))
+
 def crud_delete(cls,uuid,database):
     database.session.delete(cls.query.get(uuid))
     database.session.commit()
     return jsonify({'success':True})
+
 def crud_put(cls,uuid,post,database):
     obj = cls.query.filter_by(uuid=uuid).first()
     updated_obj = request_to_class(obj,post)
     db.session.commit()
     return jsonify(obj.toJSON())
 
-# Users
+class CRUD():
+    def __init__(self, namespace, cls, model, name):
+        self.ns = namespace
+        self.cls = cls
+        self.model = model
+        self.name = name
+
+        @self.ns.route('/')
+        class ListRoute(Resource):
+            @self.ns.doc('{}_list'.format(self.name))
+            def get(self):
+                return crud_get_list(cls)
+
+            @self.ns.doc('{}_create'.format(self.name))
+            @self.ns.expect(model)
+            @auth.login_required
+            def post(self):
+                return crud_post(cls,request.get_json(),db)
+
+        @self.ns.route('/<uuid>')
+        class NormalRoute(Resource):
+            @self.ns.doc('{}_get'.format(self.name))
+            def get(self,uuid):
+                return crud_get(cls,uuid)
+
+            @self.ns.doc('{}_delete'.format(self.name))
+            @auth.login_required
+            def delete(self,uuid):
+                return crud_delete(cls,uuid,db)
+
+            @self.ns.doc('{}_put'.format(self.name))
+            @self.ns.expect(self.model)
+            @auth.login_required
+            def put(self,uuid):
+                return crud_put(cls,uuid,request.get_json(),db)
+
+        @self.ns.route('/full')
+        class FullListRoute(Resource):
+            @self.ns.doc('{}_full'.format(self.name))
+            def get(self):
+                return crud_get_list(cls,full='full')
+
+        @self.ns.route('/full/<uuid>')
+        class FullRoute(Resource):
+            @self.ns.doc('{}_full'.format(self.name))
+            def get(self,uuid):
+                return crud_get(cls,uuid,full='full')
+
+#########
+# Users #
+#########
+
 ns_users = Namespace('users', description='User login')
 user_model = ns_users.model("user", {
     "username": fields.String(),
@@ -95,54 +150,26 @@ class ResourceRoute(Resource):
     def get(self):
         return jsonify({'data': 'Success {}'.format(g.user.username)})
 
+        
 
+###############
+# Collections #
+###############
 
-
-###################
-### COLLECTIONS ###
-###################
-
-api = Namespace('collections', description='Collections')
-collection_model = api.model("collection", {
+ns_collection = Namespace('collections', description='Collections')
+collection_model = ns_collection.model("collection", {
     "name": fields.String(),
     "readme": fields.String(),
     "tags": fields.List(fields.String),
     "parent_uuid": fields.String()
     })
 
-@api.route('/')
-class CollectionListRoute(Resource):
-    @api.doc('collection_list')
-    def get(self):
-        return crud_get_list(Collection)
+CRUD(ns_collection,Collection,collection_model,'collection')
 
-    @api.doc('collection_create')
-    @api.expect(collection_model)
-    @auth.login_required
-    def post(self):
-        return crud_post(Collection,request.get_json(),db)
-
-@api.route('/<uuid>')
-class CollectionRoute(Resource):
-    @api.doc('collection_get')
-    def get(self,uuid):
-        return crud_get(Collection,uuid)
-
-    @api.doc('collection_delete')
-    @auth.login_required
-    def delete(self,uuid):
-        return crud_delete(Collection,uuid,db)
-
-    @api.doc('collection_put')
-    @api.expect(collection_model)
-    @auth.login_required
-    def put(self,uuid):
-        return crud_put(Collection,uuid,request.get_json(),db)
-
-@api.route('/full/<uuid>')
+@ns_collection.route('/recurse/<uuid>')
 class CollectionAllRoute(Resource):
     '''Shows a collection all the way down to the root'''
-    @api.doc('collection_get_all')
+    @ns_collection.doc('collection_get_all')
     def get(self,uuid):
         '''Get a single collection and everything down the tree'''
         def recursive_down(collection):
@@ -152,4 +179,33 @@ class CollectionAllRoute(Resource):
                 dictionary['subcollections'] = [recursive_down(subcollection) for subcollection in collection.children]
             return dictionary
         return jsonify(recursive_down(Collection.query.filter_by(uuid=uuid).first()))
+
+#########
+# Parts #
+#########
+
+ns_part = Namespace('parts', description='Parts')
+part_model = ns_part.model("part", {
+    "name": fields.String(),
+    "description": fields.String(),
+    "tags": fields.List(fields.String),
+    "gene_id": fields.String(),
+    "part_type": fields.String(), # TODO enum
+    "original_sequence": fields.String(),
+    "optimized_sequence": fields.String(),
+    "synthesized_sequence": fields.String(),
+    "full_sequence": fields.String(),
+    "genbank": fields.Raw(),
+    "vector": fields.String(),
+    "primer_for": fields.String(),
+    "primer_rev": fields.String(),
+    "barcode": fields.String(),
+    "vbd": fields.String(),
+    "translation": fields.String(),
+    "collection_id": fields.String(),
+    "parent_uuid": fields.String(),
+    })
+CRUD(ns_part,Part,part_model,'part')
+
+
 
