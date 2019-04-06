@@ -1,5 +1,5 @@
-config.py
+app/config.py
 migrations
-__pycache__
+app/__pycache__
 venv
 old
