@@ -91,7 +91,7 @@ class CRUD():
             def put(self,uuid):
                 return crud_put(cls,uuid,request.get_json(),db)
 
-        @self.ns.route('/full')
+        @self.ns.route('/full/')
         class FullListRoute(Resource):
             @self.ns.doc('{}_full'.format(self.name))
             def get(self):
@@ -180,6 +180,7 @@ class CollectionAllRoute(Resource):
             return dictionary
         return jsonify(recursive_down(Collection.query.filter_by(uuid=uuid).first()))
 
+
 #########
 # Parts #
 #########
@@ -206,6 +207,5 @@ part_model = ns_part.model("part", {
     "parent_uuid": fields.String(),
     })
 CRUD(ns_part,Part,part_model,'part')
-
 
 
