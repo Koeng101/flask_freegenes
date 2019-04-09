@@ -7,3 +7,4 @@ flask_restplus
 flask_migrate
 dna_designer
 boto3
+psycopg2-binary
