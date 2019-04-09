@@ -191,7 +191,6 @@ class CollectionAllRoute(Resource):
 class CollectionPartStatus(Resource):
     def get(self,key,uuid):
         sql = "SELECT parts.{}, parts.status FROM parts WHERE parts.collection_id='{}'".format(key,uuid)
-        print(sql)
         result = db.engine.execute(sql)
         dictionary = {}
         for r in result:
@@ -202,7 +201,6 @@ class CollectionPartStatus(Resource):
 class CollectionPartStatus(Resource):
     def get(self,key,uuid,status):
         sql = "SELECT parts.{}, parts.status FROM parts WHERE parts.collection_id='{}' AND parts.status='{}'".format(key,uuid,status)
-        print(sql)
         result = db.engine.execute(sql)
         dictionary = {}
         for r in result:
@@ -232,6 +230,11 @@ part_model = ns_part.model("part", {
     "collection_id": fields.String(),
     })
 CRUD(ns_part,Part,part_model,'part')
+@ns_part.route('/gene_id/<gene_id>')
+class PartGeneId(Resource):
+    def get(self,gene_id):
+        return jsonify(Part.query.filter_by(gene_id=gene_id).first().toJSON())
+
 
 ###
 
