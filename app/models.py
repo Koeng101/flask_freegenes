@@ -298,7 +298,7 @@ class Plate(db.Model):
     protocol_uuid = db.Column(UUID, db.ForeignKey('protocols.uuid'), nullable=True)
 
     def toJSON(self,full=None):
-        dictionary= {'uuid': self.uuid, 'plate_name': self.plate_name, 'plate_form': self.plate_form, 'plate_type': self.plate_type, 'status': self.status, 'protocol_uuid':self.protocol_uuid}
+        dictionary= {'uuid': self.uuid, 'breadcrumb':self.breadcrumb, 'plate_name': self.plate_name, 'plate_form': self.plate_form, 'plate_type': self.plate_type, 'status': self.status, 'protocol_uuid':self.protocol_uuid}
         if full=='full':
             dictionary['wells'] = [well.uuid for well in self.wells]
         return dictionary
@@ -343,7 +343,7 @@ class Well(db.Model): # Constrain Wells to being unique to each plate
     quantity = db.Column(db.Float, nullable=True) # fmol - if null, unknown
     media = db.Column(db.String(32)) # Liquid
     well_type = db.Column(db.String(32)) # glycerol,grown,purified_dna,pcr,gdna,etc
-    organism = db.Column(db.String)
+    organism = db.Column(db.String) # IMPLEMENT ORGANISM CONTROL
 
     plate_uuid = db.Column(UUID, db.ForeignKey('plates.uuid'),
             nullable=False)

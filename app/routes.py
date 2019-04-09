@@ -111,9 +111,11 @@ class CRUD():
             def get(self,uuid):
                 return crud_get(cls,uuid,full='full')
 
-#########
-# Users #
-#########
+#========#
+# Routes #
+#========#
+
+###
 
 ns_users = Namespace('users', description='User login')
 user_model = ns_users.model("user", {
@@ -159,10 +161,7 @@ class ResourceRoute(Resource):
         return jsonify({'data': 'Success {}'.format(g.user.username)})
 
         
-
-###############
-# Collections #
-###############
+###
 
 ns_collection = Namespace('collections', description='Collections')
 collection_model = ns_collection.model("collection", {
@@ -199,9 +198,7 @@ class CollectionPartStatus(Resource):
             dictionary[str(r[0])] = r[1]
         return jsonify(dictionary)
 
-#########
-# Parts #
-#########
+###
 
 ns_part = Namespace('parts', description='Parts')
 part_model = ns_part.model("part", {
@@ -225,10 +222,7 @@ part_model = ns_part.model("part", {
     })
 CRUD(ns_part,Part,part_model,'part')
 
-
-##################
-# Part modifiers #
-##################
+###
 
 ns_part_modifiers = Namespace('part_modification', description='Modify parts')
 
@@ -310,9 +304,7 @@ class NewGeneID(Resource):
         db.session.commit()
         return jsonify(obj.toJSON())
 
-##########
-# Author #
-##########
+###
 
 ns_author = Namespace('authors', description='Authors')
 author_model = ns_part.model("author", {
@@ -324,10 +316,7 @@ author_model = ns_part.model("author", {
     })
 CRUD(ns_author,Author,author_model,'author')
 
-
-############
-# Organism #
-############
+###
 
 ns_organism = Namespace('organisms', description='Organisms')
 organism_model = ns_organism.model("organism", {
@@ -338,9 +327,7 @@ organism_model = ns_organism.model("organism", {
     })
 CRUD(ns_organism,Organism,organism_model,'organism')
 
-#
-# Robot
-#
+###
 
 ns_robot = Namespace('robots', description='Robots')
 robot_model = ns_robot.model('robot', {
@@ -351,6 +338,8 @@ robot_model = ns_robot.model('robot', {
     })
 CRUD(ns_robot,Robot,robot_model,'robot')
 
+###
+
 ns_pipette = Namespace('pipettes', description='Pipettes')
 pipette_model = ns_pipette.model('pipette', {
     "pipette_type": fields.String(),
@@ -359,6 +348,8 @@ pipette_model = ns_pipette.model('pipette', {
     "notes": fields.String(),
     })
 CRUD(ns_pipette,Pipette,pipette_model,'pipette')
+
+###
 
 ns_protocol = Namespace('protocols', description='Protocols')
 protocol_model = ns_protocol.model('protocol', {
@@ -370,6 +361,40 @@ protocol_model = ns_protocol.model('protocol', {
     })
 CRUD(ns_protocol,Protocol,protocol_model,'protocol')
 
+###
 
+ns_plate = Namespace('plates', description='Plates')
+plate_model = ns_plate.model('plate', {
+    "breadcrumb": fields.String(),
+    "plate_name": fields.String(),
+    "plate_form": fields.String(),
+    "plate_type": fields.String(),
+    "notes": fields.String(),
+    "protocol_uuid": fields.String(),
+    })
+CRUD(ns_plate,Plate,plate_model,'plate')
 
+###
 
+ns_sample = Namespace('samples', description='Samples')
+sample_model = ns_sample.model('sample', {
+    "part_uuid": fields.String(),
+    "derived_from": fields.String(),
+    "wells": fields.String()
+    })
+CRUD(ns_sample,Sample,sample_model,'sample')
+
+###
+
+ns_well = Namespace('wells', description='Wells')
+well_model = ns_well.model('well', {
+    "address": fields.String(),
+    "volume": fields.Float(),
+    "quantity": fields.Float(),
+    "media": fields.String(),
+    "well_type": fields.String(),
+    "plate_uuid": fields.String()
+    })
+CRUD(ns_well,Well,well_model,'well')
+
+### For others, waiting for full integration of files

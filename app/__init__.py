@@ -28,7 +28,7 @@ from .config import PREFIX
 
 from .models import db
 
-from .routes import ns_users, ns_collection, ns_part, ns_part_modifiers, ns_author, ns_organism, ns_robot, ns_pipette, ns_protocol
+from .routes import ns_users, ns_collection, ns_part, ns_part_modifiers, ns_author, ns_organism, ns_robot, ns_pipette, ns_protocol, ns_plate, ns_sample, ns_well
 
 # initialization
 app = Flask(__name__)
@@ -46,7 +46,7 @@ api = Api(app, version='1.1', title='FreeGenes Collections',
 migrate = Migrate(app, db)
 
 
-namespaces = [ns_users, ns_collection, ns_part, ns_part_modifiers, ns_author, ns_organism, ns_robot, ns_pipette, ns_protocol]
+namespaces = [ns_users, ns_collection, ns_part, ns_part_modifiers, ns_author, ns_organism, ns_robot, ns_pipette, ns_protocol, ns_plate, ns_sample, ns_well]
 for ns in namespaces:
     api.add_namespace(ns)
 
