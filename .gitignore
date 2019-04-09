@@ -3,3 +3,6 @@ migrations
 app/__pycache__
 venv
 old
+flask_freegenes.sock
+flask_freegenes.ini
+__pycache__
