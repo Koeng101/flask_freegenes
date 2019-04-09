@@ -230,14 +230,32 @@ part_model = ns_part.model("part", {
     "collection_id": fields.String(),
     })
 CRUD(ns_part,Part,part_model,'part')
-@ns_part.route('/gene_id/<gene_id>')
+@ns_part.route('/get/<key>/<value>')
 class PartGeneId(Resource):
-    def get(self,gene_id):
-        return jsonify(Part.query.filter_by(gene_id=gene_id).first().toJSON())
+    def get(self,key,value):
+        kwargs = {key:value}
+        return jsonify(Part.query.filter_by(**kwargs).first().toJSON())
 @ns_part.route('/collection/<uuid>')
 class PartCollection(Resource):
     def get(self,uuid):
         return jsonify([obj.toJSON() for obj in Part.query.filter_by(collection_id=uuid)])
+
+@ns_part.route('/locations/<uuid>')
+class PartLocations(Resource):
+    def get(self,uuid):
+        obj = Part.query.filter_by(uuid=uuid).first()
+        results = []
+        for sample in obj.samples:
+            print(sample)
+            for well in sample.wells:
+                plate = well.plate.toJSON()
+                plate['wells'] = well.toJSON()
+                print(plate)
+                results.append(plate)
+        return jsonify(results)
+
+
+
 
 ###
 
