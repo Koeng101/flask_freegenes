@@ -198,6 +198,17 @@ class CollectionPartStatus(Resource):
             dictionary[str(r[0])] = r[1]
         return jsonify(dictionary)
 
+@ns_collection.route('/part_status/<uuid>/<key>/<status>')
+class CollectionPartStatus(Resource):
+    def get(self,key,uuid,status):
+        sql = "SELECT parts.{}, parts.status FROM parts WHERE parts.collection_id='{}' AND parts.status='{}'".format(key,uuid,status)
+        print(sql)
+        result = db.engine.execute(sql)
+        dictionary = {}
+        for r in result:
+            dictionary[str(r[0])] = r[1]
+        return jsonify(dictionary)
+
 ###
 
 ns_part = Namespace('parts', description='Parts')
