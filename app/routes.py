@@ -234,7 +234,10 @@ CRUD(ns_part,Part,part_model,'part')
 class PartGeneId(Resource):
     def get(self,gene_id):
         return jsonify(Part.query.filter_by(gene_id=gene_id).first().toJSON())
-
+@ns_part.route('/collection/<uuid>')
+class PartCollection(Resource):
+    def get(self,uuid):
+        return jsonify([obj.toJSON() for obj in Part.query.filter_by(collection_id=uuid)])
 
 ###
 
