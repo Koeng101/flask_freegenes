@@ -29,7 +29,7 @@ from .models import db
 
 from .routes import ns_users 
 from .routes import ns_collection 
-from .routes import ns_part 
+from .routes import ns_part, ns_part_modifiers, ns_author
 
 # initialization
 app = Flask(__name__)
@@ -48,6 +48,8 @@ migrate = Migrate(app, db)
 api.add_namespace(ns_users)
 api.add_namespace(ns_collection)
 api.add_namespace(ns_part)
+api.add_namespace(ns_part_modifiers)
+api.add_namespace(ns_author)
 
 if __name__ == '__main__' and DEV == True:
     app.run(debug=True)

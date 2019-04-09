@@ -5,6 +5,9 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_httpauth import HTTPBasicAuth
 from flask import Flask, abort, request, jsonify, g, url_for
 
+from .config import SPACES
+from .config import BUCKET
+
 from .config import SECRET_KEY
 from itsdangerous import (TimedJSONWebSignatureSerializer
                           as Serializer, BadSignature, SignatureExpired)
@@ -96,10 +99,34 @@ class Tag(db.Model):
     tag = db.Column(db.String)
 
 #class Files(db.Model):
+#    def __init__(self,name,file,filetype):
+#        file_name = str(uuid.uuid4())
+#        def upload_file_to_spaces(file,file_name=file_name):#,bucket_name=BUCKET,spaces=SPACES):
+#            """
+#            Docs: http://boto3.readthedocs.io/en/latest/guide/s3.html
+#            http://zabana.me/notes/upload-files-amazon-s3-flask.html"""
+#            try:
+#                print('woo')
+#                #spaces.upload_file(file,bucket_name,file_name)
+#            except Exception as e:
+#                print("Failed: {}".format(e))
+#                return False
+#            return True
+#        if upload_file_to_spaces == True:
+#            self.name = name
+#            self.file_name = file_name
+#            self.file_type = file_type
+#
 #    __tablename__ = 'files'
 #    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
-#    file = db.Column(db.String)
-
+#    name = db.Column(db.String) # Name to be displayed to user
+#    file_name = db.Column(db.String) # Link to spaces
+#    file_type = db.Column(db.String)
+#
+#    def toJSON(self,full=None):
+#        dictionary={'uuid': self.uuid, 'name': self.name, 'file_name': self.file_name, 'file_type': self.file_type}
+#        return dictionary
+#
 
 # Think things
 class Collection(db.Model):
@@ -153,7 +180,7 @@ class Organism(db.Model):
     name = db.Column(db.String)
     description = db.Column(db.String)
     genotype = db.Column(db.String)
-    tags = db.relationship('Tag', secondary=tags_authors, lazy='subquery',
+    tags = db.relationship('Tag', secondary=tags_organisms, lazy='subquery',
         backref=db.backref('organisms', lazy=True))
 
     def toJSON(self,full=None):
@@ -165,13 +192,13 @@ class Part(db.Model):
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
-    status = db.Column(db.String) # Status of the design, not physical 
+    status = db.Column(db.String) # null, optimized, fixed, sites_applied, syn_checked (syn_check_failed),   
 
     name = db.Column(db.String)
     description = db.Column(db.String)
 
     gene_id = db.Column(db.String)
-    part_type = db.Column(db.String)
+    part_type = db.Column(db.String) # full_promoter, promoter, rbs, cds, terminator
     original_sequence = db.Column(db.String)
     optimized_sequence = db.Column(db.String)
     synthesized_sequence = db.Column(db.String)
@@ -199,7 +226,7 @@ class Part(db.Model):
 
     def toJSON(self,full=None):
         # Return collection ID as well
-        dictionary = {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':[tag.tag for tag in self.tags],'name':self.name,'description':self.description,'gene_id':self.gene_id,'part_type':self.part_type,'original_sequence':self.original_sequence,'optimized_sequence':self.optimized_sequence,'synthesized_sequence':self.synthesized_sequence,'full_sequence':self.full_sequence,'genbank':self.genbank,'vector':self.vector,'primer_for':self.primer_for,'primer_rev':self.primer_rev,'barcode':self.barcode,'vbd':self.vbd,'author_uuid':self.author_uuid}
+        dictionary = {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':[tag.tag for tag in self.tags],'name':self.name,'description':self.description,'gene_id':self.gene_id,'part_type':self.part_type,'original_sequence':self.original_sequence,'optimized_sequence':self.optimized_sequence,'synthesized_sequence':self.synthesized_sequence,'full_sequence':self.full_sequence,'genbank':self.genbank,'vector':self.vector,'primer_for':self.primer_for,'primer_rev':self.primer_rev,'barcode':self.barcode,'vbd':self.vbd,'author_uuid':self.author_uuid,'translation':self.translation}
         if full=='full':
             dictionary['samples'] = [sample.uuid for sample in self.samples]
         return dictionary
