@@ -234,7 +234,12 @@ CRUD(ns_part,Part,part_model,'part')
 class PartGeneId(Resource):
     def get(self,key,value):
         kwargs = {key:value}
-        return jsonify(Part.query.filter_by(**kwargs).first().toJSON())
+        parts = Part.query.filter_by(**kwargs)
+        if parts.count() == 0:
+            return jsonify([])
+        else:
+            return jsonify([part.toJSON() for part in parts])
+
 @ns_part.route('/collection/<uuid>')
 class PartCollection(Resource):
     def get(self,uuid):
@@ -246,11 +251,9 @@ class PartLocations(Resource):
         obj = Part.query.filter_by(uuid=uuid).first()
         results = []
         for sample in obj.samples:
-            print(sample)
             for well in sample.wells:
                 plate = well.plate.toJSON()
                 plate['wells'] = well.toJSON()
-                print(plate)
                 results.append(plate)
         return jsonify(results)
 
