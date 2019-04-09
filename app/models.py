@@ -287,14 +287,15 @@ class Plate(db.Model):
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
     status = db.Column(db.String) # planned, processing, complete
-
+    
+    breadcrumb = db.Column(db.String)
     plate_name = db.Column(db.String(32))
     plate_form = db.Column(db.String(32))
     plate_type = db.Column(db.String(32)) # dna_plate, asssembly, transformation, agar_plate, deepwell, glycerol
     wells = db.relationship('Well',backref='plate')
 
+    notes = db.Column(db.String)
     protocol_uuid = db.Column(UUID, db.ForeignKey('protocols.uuid'), nullable=True)
-    location = db.Column(db.String)
 
     def toJSON(self,full=None):
         dictionary= {'uuid': self.uuid, 'plate_name': self.plate_name, 'plate_form': self.plate_form, 'plate_type': self.plate_type, 'status': self.status, 'protocol_uuid':self.protocol_uuid}

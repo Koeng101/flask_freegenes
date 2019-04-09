@@ -350,3 +350,26 @@ robot_model = ns_robot.model('robot', {
     "genotype": fields.String(),
     })
 CRUD(ns_robot,Robot,robot_model,'robot')
+
+ns_pipette = Namespace('pipettes', description='Pipettes')
+pipette_model = ns_pipette.model('pipette', {
+    "pipette_type": fields.String(),
+    "mount_side": fields.String(),
+    "robot_uuid": fields.String(),
+    "notes": fields.String(),
+    })
+CRUD(ns_pipette,Pipette,pipette_model,'pipette')
+
+ns_protocol = Namespace('protocols', description='Protocols')
+protocol_model = ns_protocol.model('protocol', {
+    "description": fields.String(),
+    "protocol": fields.Raw,
+    "status": fields.String(),
+    "protocol_type": fields.String(),
+    "robot_uuid": fields.String(),
+    })
+CRUD(ns_protocol,Protocol,protocol_model,'protocol')
+
+
+
+
