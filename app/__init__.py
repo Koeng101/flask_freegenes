@@ -37,7 +37,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = URL
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # extensions
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app)
 db.init_app(app)
 auth = HTTPBasicAuth()
 api = Api(app, version='1.1', title='FreeGenes Collections',
