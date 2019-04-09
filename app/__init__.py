@@ -30,7 +30,7 @@ from .models import db
 
 from .routes import ns_users 
 from .routes import ns_collection 
-from .routes import ns_part, ns_part_modifiers, ns_author
+from .routes import ns_part, ns_part_modifiers, ns_author, ns_organism
 
 # initialization
 app = Flask(__name__)
@@ -39,7 +39,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = URL
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # extensions
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 db.init_app(app)
 auth = HTTPBasicAuth()
 api = Api(app, version='1.1', title='FreeGenes Collections',
@@ -47,11 +47,11 @@ api = Api(app, version='1.1', title='FreeGenes Collections',
             )
 migrate = Migrate(app, db)
 
-api.add_namespace(ns_users)
-api.add_namespace(ns_collection)
-api.add_namespace(ns_part)
-api.add_namespace(ns_part_modifiers)
-api.add_namespace(ns_author)
+
+namespaces = [ns_users, ns_collection, ns_part, ns_part_modifiers, ns_author, ns_organism]
+for ns in namespaces:
+    api.add_namespace(ns)
+
 
 if __name__ == '__main__' and DEV == True:
     app.run(debug=True)

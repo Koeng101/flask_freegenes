@@ -185,6 +185,7 @@ class Organism(db.Model):
 
     def toJSON(self,full=None):
         dictionary = {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'name':self.name,'description':self.description,'genotype':self.genotype,'tags':[tag.tag for tag in self.tags]}
+        return dictionary
 
 class Part(db.Model):
     __tablename__ = 'parts'
@@ -235,17 +236,26 @@ class Part(db.Model):
 class Robot(db.Model):
     __tablename__ = 'robots'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
-    right_300 = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"))
-    left_10 = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"))
-    robot_name = db.Column(db.String)
+    name = db.Column(db.String)
     notes = db.Column(db.String)
     protocols = db.relationship('Protocol',backref='robot')
+    pipettes = db.relationship('Pipette',backref='robot')
 
     def toJSON(self,full=None):
         dictionary = {'uuid':self.uuid,'right_300':self.right_300,'left_10':self.left_10,'robot_name':self.robot_name,'notes':self.notes}
         if full=='full':
             dictionary['protocols'] = [protocol.uuid for protocol in self.protocols]
         return dictionary
+
+class Pipette(db.Model):
+    __tablename__ = 'pipettes'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    pipette_type = db.Column(db.String) # TODO enum here
+    mount_side = db.Column(db.String)
+    robot_uuid = db.Column(UUID, db.ForeignKey('robots.uuid'),
+            nullable=True)
+    notes = db.Column(db.String)
+
 
 class Protocol(db.Model):
     __tablename__ = 'protocols'

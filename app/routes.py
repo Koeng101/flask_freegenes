@@ -199,8 +199,6 @@ class CollectionPartStatus(Resource):
             dictionary[str(r[0])] = r[1]
         return jsonify(dictionary)
 
-
-
 #########
 # Parts #
 #########
@@ -327,5 +325,28 @@ author_model = ns_part.model("author", {
 CRUD(ns_author,Author,author_model,'author')
 
 
+############
+# Organism #
+############
 
+ns_organism = Namespace('organisms', description='Organisms')
+organism_model = ns_organism.model("organism", {
+    "name": fields.String(),
+    "description": fields.String(),
+    "tags": fields.List(fields.String),
+    "genotype": fields.String(),
+    })
+CRUD(ns_organism,Organism,organism_model,'organism')
 
+#
+# Robot
+#
+
+ns_robot = Namespace('robots', description='Robots')
+robot_model = ns_robot.model('robot', {
+    "name": fields.String(),
+    "description": fields.String(),
+    "tags": fields.List(fields.String),
+    "genotype": fields.String(),
+    })
+CRUD(ns_robot,Robot,robot_model,'robot')
