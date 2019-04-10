@@ -20,7 +20,7 @@ def request_to_class(dbclass,json_request):
                     tags.append(Tag(tag=tag))
                 else:
                     tags.append(tags_in_db[0])
-        if k == 'files' and v != []:
+        elif k == 'files' and v != []:
             for file_uuid in v:
                 files_in_db = File.query.filter_by(uuid=file_uuid).first()
                 if len(files_in_db) == 0:
@@ -236,6 +236,7 @@ part_model = ns_part.model("part", {
     "vbd": fields.String(),
     "translation": fields.String(),
     "collection_id": fields.String(),
+    "author_uuid": fields.String(),
     })
 CRUD(ns_part,Part,part_model,'part')
 @ns_part.route('/get/<key>/<value>')
