@@ -1,6 +1,7 @@
+import json
 from .models import *
-from flask_restplus import Api, Resource, fields, Namespace
-from flask import Flask, abort, request, jsonify, g, url_for
+from flask_restplus import Api, Resource, fields, Namespace 
+from flask import Flask, abort, request, jsonify, g, url_for, redirect
 
 from .config import PREFIX
 from .config import LOGIN_KEY
@@ -19,6 +20,13 @@ def request_to_class(dbclass,json_request):
                     tags.append(Tag(tag=tag))
                 else:
                     tags.append(tags_in_db[0])
+        if k == 'files' and v != []:
+            for file_uuid in v:
+                files_in_db = File.query.filter_by(uuid=file_uuid).first()
+                if len(files_in_db) == 0:
+                    pass
+                else: 
+                    dbclass.files.append(files_in_db[0])
         elif k == 'samples' and v != []:
             dbclass.samples = []
             [dbclass.samples.append(Sample.query.filter_by(uuid=uuid).first()) for uuid in v] # In order to sue 
@@ -257,9 +265,6 @@ class PartLocations(Resource):
                 results.append(plate)
         return jsonify(results)
 
-
-
-
 ###
 
 ns_part_modifiers = Namespace('part_modification', description='Modify parts')
@@ -344,6 +349,49 @@ class NewGeneID(Resource):
 
 ###
 
+ns_file = Namespace('files', description='Files')
+
+@ns_file.route('/')
+class AllFiles(Resource):
+    def get(self):
+        return crud_get_list(Files)
+
+@ns_file.route('/<uuid>')
+class SingleFile(Resource):
+    def get(self,uuid):
+        return crud_get(Files,uuid)
+    @auth.login_required
+    def delete(self,uuid):
+        file = Files.query.get(uuid)
+        print(type(SPACES))
+        SPACES.delete_object(Bucket=BUCKET,Key=file.file_name)
+        db.session.delete(file)
+        db.session.commit()
+        return jsonify({'success':True})
+
+
+@ns_file.route('/upload')
+class NewFile(Resource):
+    @auth.login_required
+    def post(self):
+        json_file = json.loads(request.files['json'].read())
+        file = request.files['file']
+        new_file = Files(json_file['name'],file)
+        db.session.add(new_file)
+        db.session.commit()
+        return jsonify(new_file.toJSON())
+
+@ns_file.route('/download/<uuid>')
+class DownloadFile(Resource):
+    def get(self,uuid):
+        obj = Files.query.filter_by(uuid=uuid).first()
+        return obj.download()
+
+
+
+
+###
+
 ns_author = Namespace('authors', description='Authors')
 author_model = ns_part.model("author", {
     "name": fields.String(),
@@ -422,6 +470,20 @@ sample_model = ns_sample.model('sample', {
     })
 CRUD(ns_sample,Sample,sample_model,'sample')
 
+@ns_sample.route('/validation/<uuid>')
+class SeqDownloadFile(Resource):
+    def get(self,uuid):
+        obj = Sample.query.filter_by(uuid=uuid).first()
+        pileup = [pileup.uuid for pileup in obj.pileups]
+        if len(pileup) > 1:
+            return {'message': 'too many pileup'}
+        elif len(pileup) == 0:
+            return {'message': 'no pileup found'}
+        else:
+            target = Pileup.query.filter_by(uuid=pileup[0]).first()
+            return redirect('/files/download/{}'.format(target.file_uuid))
+
+
 ###
 
 ns_well = Namespace('wells', description='Wells')
@@ -435,4 +497,42 @@ well_model = ns_well.model('well', {
     })
 CRUD(ns_well,Well,well_model,'well')
 
-### For others, waiting for full integration of files
+###
+
+ns_seqrun = Namespace('seqrun', description='Seqrun')
+seqrun_model = ns_seqrun.model('seqrun', {
+    "run_id": fields.String(),
+    "notes": fields.String(),
+    "sequencing_type": fields.String(),
+    "machine": fields.String(),
+    "provider": fields.String(),
+    })
+CRUD(ns_seqrun,Seqrun,seqrun_model,'seqrun')
+
+###
+
+ns_pileup = Namespace('pileup', description='Pileup')
+pileup_model = ns_pileup.model('pileup', {
+    "status": fields.String(),
+    "full_sequence_search": fields.String(),
+    "target_sequence": fields.String(),
+    "fastqs": fields.List(fields.String()),
+    "file_uuid": fields.String()
+    })
+CRUD(ns_pileup,Pileup,pileup_model,'pileup')
+
+###
+
+ns_fastq = Namespace('fastq', description='Fastq')
+fastq_model = ns_fastq.model('fastq', {
+    "name": fields.String(),
+    "seqrun_uuid": fields.String(),
+    "file_uuid": fields.String(),
+    "index_for": fields.String(),
+    "index_rev": fields.String(),
+    })
+CRUD(ns_fastq,Fastq,fastq_model,'fastq')
+
+
+
+

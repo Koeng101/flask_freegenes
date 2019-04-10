@@ -3,7 +3,8 @@ import sqlalchemy
 from sqlalchemy.sql import func
 from flask_sqlalchemy import SQLAlchemy
 from flask_httpauth import HTTPBasicAuth
-from flask import Flask, abort, request, jsonify, g, url_for
+from flask import Flask, abort, request, jsonify, g, url_for, Response
+import uuid
 
 from .config import SPACES
 from .config import BUCKET
@@ -81,52 +82,78 @@ tags_authors = db.Table('tags_authors',
     db.Column('author_uuid', UUID(as_uuid=True), db.ForeignKey('authors.uuid'),primary_key=True,nullable=True),
 )
 
-# TODO fastq and pileup files
-# TODO how to upload files?
-#files_parts = db.Table('files_parts',
-#        db.Column('files_uuid', UUID(as_uuid=True), db.ForeignKey('files.uuid'), primary_key=True),
-#    db.Column('part_uuid', UUID(as_uuid=True), db.ForeignKey('parts.uuid'),primary_key=True,nullable=True),
-#)
-#
-#files_organisms = db.Table('files_organisms',
-#        db.Column('files_uuid', UUID(as_uuid=True), db.ForeignKey('files.uuid'), primary_key=True),
-#    db.Column('organism_uuid', UUID(as_uuid=True), db.ForeignKey('organisms.uuid'),primary_key=True,nullable=True),
-#)
-
 class Tag(db.Model):
     __tablename__ = 'tags'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     tag = db.Column(db.String)
 
-#class Files(db.Model):
-#    def __init__(self,name,file,filetype):
-#        file_name = str(uuid.uuid4())
-#        def upload_file_to_spaces(file,file_name=file_name):#,bucket_name=BUCKET,spaces=SPACES):
-#            """
-#            Docs: http://boto3.readthedocs.io/en/latest/guide/s3.html
-#            http://zabana.me/notes/upload-files-amazon-s3-flask.html"""
-#            try:
-#                print('woo')
-#                #spaces.upload_file(file,bucket_name,file_name)
-#            except Exception as e:
-#                print("Failed: {}".format(e))
-#                return False
-#            return True
-#        if upload_file_to_spaces == True:
-#            self.name = name
-#            self.file_name = file_name
-#            self.file_type = file_type
-#
-#    __tablename__ = 'files'
-#    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
-#    name = db.Column(db.String) # Name to be displayed to user
-#    file_name = db.Column(db.String) # Link to spaces
-#    file_type = db.Column(db.String)
-#
-#    def toJSON(self,full=None):
-#        dictionary={'uuid': self.uuid, 'name': self.name, 'file_name': self.file_name, 'file_type': self.file_type}
-#        return dictionary
-#
+
+# TODO fastq and pileup files
+# TODO how to upload files?
+files_parts = db.Table('files_parts',
+        db.Column('files_uuid', UUID(as_uuid=True), db.ForeignKey('files.uuid'), primary_key=True),
+    db.Column('parts_uuid', UUID(as_uuid=True), db.ForeignKey('parts.uuid'),primary_key=True,nullable=True),
+)
+
+files_organisms = db.Table('files_organisms',
+        db.Column('files_uuid', UUID(as_uuid=True), db.ForeignKey('files.uuid'), primary_key=True),
+    db.Column('organisms_uuid', UUID(as_uuid=True), db.ForeignKey('organisms.uuid'),primary_key=True,nullable=True),
+)
+
+def get_total_bytes(s3, key):
+    result = s3.list_objects(Bucket=BUCKET)
+    for item in result['Contents']:
+        if item['Key'] == key:
+            return item['Size']
+
+def get_object(s3, total_bytes,key):
+    if total_bytes > 1000000:
+        return get_object_range(s3, total_bytes, key)
+    return s3.get_object(Bucket=BUCKET, Key=key)['Body'].read()
+
+def get_object_range(s3, total_bytes, key):
+    offset = 0
+    while total_bytes > 0:
+        end = offset + 999999 if total_bytes > 1000000 else ""
+        total_bytes -= 1000000
+        byte_range = 'bytes={offset}-{end}'.format(offset=offset, end=end)
+        offset = end + 1 if not isinstance(end, basestring) else None
+        yield s3.get_object(Bucket=BUCKET, Key=key, Range=byte_range)['Body'].read()
+
+class Files(db.Model):
+    def __init__(self,name,file):
+        file_name = str(uuid.uuid4())
+        def upload_file_to_spaces(file,file_name=file_name,bucket_name=BUCKET,spaces=SPACES):
+            """
+            Docs: http://boto3.readthedocs.io/en/latest/guide/s3.html
+            http://zabana.me/notes/upload-files-amazon-s3-flask.html"""
+            try:
+                spaces.upload_fileobj(file,bucket_name,file_name)
+            except Exception as e:
+                print("Failed: {}".format(e))
+                return False
+            return True
+        if upload_file_to_spaces(file,file_name=file_name) == True:
+            self.name = name
+            self.file_name = file_name
+    __tablename__ = 'files'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+
+    name = db.Column(db.String, nullable=False) # Name to be displayed to user
+    file_name = db.Column(db.String, nullable=False) # Link to spaces
+
+    def toJSON(self,full=None):
+        return {'uuid':self.uuid,'name':self.name,'file_name':self.file_name}
+    def download(self):
+        s3 = SPACES
+        key = self.file_name
+        total_bytes = get_total_bytes(s3,key)
+        return Response(
+            get_object(s3, total_bytes, key),
+            mimetype='text/plain',
+            headers={"Content-Disposition": "attachment;filename={}".format(self.name)})
+
 
 # Think things
 class Collection(db.Model):
@@ -182,6 +209,7 @@ class Organism(db.Model):
     genotype = db.Column(db.String)
     tags = db.relationship('Tag', secondary=tags_organisms, lazy='subquery',
         backref=db.backref('organisms', lazy=True))
+    files = db.relationship('Files', secondary=files_organisms, lazy='subquery', backref=db.backref('organisms', lazy=True))
 
     def toJSON(self,full=None):
         dictionary = {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'name':self.name,'description':self.description,'genotype':self.genotype,'tags':[tag.tag for tag in self.tags]}
@@ -216,6 +244,7 @@ class Part(db.Model):
 
     tags = db.relationship('Tag', secondary=tags_parts, lazy='subquery',
         backref=db.backref('parts', lazy=True))
+    files = db.relationship('Files', secondary=files_parts, lazy='subquery', backref=db.backref('parts', lazy=True))
 
     collection_id = db.Column(UUID, db.ForeignKey('collections.uuid'),
             nullable=False)
@@ -376,8 +405,6 @@ class Seqrun(db.Model):
             dictionary['fastqs'] = [fastq.uuid for fastq in self.fastqs]
         return dictionary
 
-
-
 pileup_fastq = db.Table('pileup_fastq',
     db.Column('pileup_uuid', UUID(as_uuid=True), db.ForeignKey('pileups.uuid'), primary_key=True),
     db.Column('fastq_uuid', UUID(as_uuid=True), db.ForeignKey('fastqs.uuid'),primary_key=True,nullable=True),
@@ -392,15 +419,16 @@ class Pileup(db.Model):
     status = db.Column(db.String) # mutation,confirmed,etc
     full_search_sequence = db.Column(db.String)
     target_sequence = db.Column(db.String) 
-    pileup_link = db.Column(db.String)
 
     sample_uuid = db.Column(UUID, db.ForeignKey('samples.uuid'),
             nullable=False)
     fastqs = db.relationship('Fastq', secondary=pileup_fastq, lazy='subquery',
         backref=db.backref('pileups', lazy=True))
+
+    file_uuid = db.Column(UUID, db.ForeignKey('files.uuid'),nullable=True)
     
     def toJSON(self,full=None):
-        dictionary= {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'full_search_sequence':self.full_search_sequence,'target_sequence':self.target_sequence,'pileup_link':self.pileup_link, 'sample_uuid': self.sample_uuid}
+        dictionary= {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'full_search_sequence':self.full_search_sequence,'target_sequence':self.target_sequence,'file_uuid':self.file_uuid, 'sample_uuid': self.sample_uuid}
         if full=='full':
             dictionary['fastqs'] = [fastq.uuid for fastq in self.fastqs]
         return dictionary
@@ -411,14 +439,15 @@ class Fastq(db.Model):
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
     seqrun_uuid = db.Column(UUID, db.ForeignKey('seqruns.uuid'), nullable=False)
-    fastq_link = db.Column(db.String)
-    raw_link = db.Column(db.String) # gz zipped
+    name = db.Column(db.String)
+
+    file_uuid = db.Column(UUID, db.ForeignKey('files.uuid'),nullable=True)
 
     index_for = db.Column(db.String)
     index_rev = db.Column(db.String)
     
     def toJSON(self,full=None):
-        dictionary= {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'seqrun_uuid':self.seqrun_uuid,'fastq_link':self.fastq_link,'index_for':self.index_for,'index_rev':self.index_rev}
+        dictionary= {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'seqrun_uuid':self.seqrun_uuid,'file_uuid':self.file_uuid,'index_for':self.index_for,'index_rev':self.index_rev}
         if full=='full':
             dictionary['pileups'] = [pileup.uuid for pileup in self.pileups]
         return dictionary
