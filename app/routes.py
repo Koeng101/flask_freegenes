@@ -461,6 +461,23 @@ plate_model = ns_plate.model('plate', {
     })
 CRUD(ns_plate,Plate,plate_model,'plate')
 
+@ns_plate.route('/recurse/<uuid>')
+class PlateSamples(Resource):
+    def get(self,uuid):
+        obj = Plate.query.filter_by(uuid=uuid).first()
+        wells = []
+        for well in obj.wells:
+            samples = []
+            for sample in well.samples:
+                to_add = sample.toJSON()
+                to_add['part'] = sample.part.toJSON()
+                samples.append(to_add)
+            to_add = well.toJSON()
+            to_add['samples'] = samples
+            wells.append(to_add)
+        plate = obj.toJSON()
+        plate['wells'] = wells
+        return jsonify(plate)
 ###
 
 ns_sample = Namespace('samples', description='Samples')
