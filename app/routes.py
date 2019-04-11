@@ -27,6 +27,9 @@ def request_to_class(dbclass,json_request):
                     pass
                 else: 
                     dbclass.files.append(files_in_db[0])
+        elif k == 'plates' and v != []:
+            dbclass.plates = []
+            [dbclass.plates.append(Plate.query.filter_by(uuid=uuid).first()) for uuid in v]
         elif k == 'samples' and v != []:
             dbclass.samples = []
             [dbclass.samples.append(Sample.query.filter_by(uuid=uuid).first()) for uuid in v] # In order to sue 
@@ -519,13 +522,45 @@ CRUD(ns_well,Well,well_model,'well')
 
 ns_seqrun = Namespace('seqrun', description='Seqrun')
 seqrun_model = ns_seqrun.model('seqrun', {
+    "name": fields.String(),
     "run_id": fields.String(),
+    "machine_id": fields.String(),
     "notes": fields.String(),
     "sequencing_type": fields.String(),
     "machine": fields.String(),
     "provider": fields.String(),
     })
 CRUD(ns_seqrun,Seqrun,seqrun_model,'seqrun')
+
+@ns_seqrun.route('/seq_verify/<uuid>')
+class SeqDownloadFile(Resource):
+    def get(self,uuid):
+        obj = Seqrun.query.filter_by(uuid=uuid).first()
+        indexs = []
+        fastqs = [fastq for fastq in obj.fastqs]
+        for fastq in fastqs:
+            for_rev = '{}_{}'.format(fastq.index_for,fastq.index_rev)
+            indexs.append(for_rev)
+        indexs = list(set(indexs))
+        index_dict = {}
+        for index in indexs:
+            index_fastqs = []
+            pileups = []
+            for fastq in fastqs:
+                for_rev = '{}_{}'.format(fastq.index_for,fastq.index_rev)
+                if for_rev == index:
+                    index_fastqs.append(fastq.toJSON())
+                    for pileup in fastq.pileups:
+                        pileups.append(pileup.toJSON())
+            pileups = list(dict((v['uuid'],v) for v in pileups).values())
+            index_dict[index] = {'fastqs': index_fastqs, 'pileups':pileups}
+
+        seqrun = obj.toJSON()
+        seqrun['indexes'] = index_dict
+        return jsonify(seqrun)
+            
+            
+
 
 ###
 
