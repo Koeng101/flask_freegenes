@@ -117,7 +117,7 @@ def get_object_range(s3, total_bytes, key):
         end = offset + 999999 if total_bytes > 1000000 else ""
         total_bytes -= 1000000
         byte_range = 'bytes={offset}-{end}'.format(offset=offset, end=end)
-        offset = end + 1 if not isinstance(end, basestring) else None
+        offset = end + 1 if not isinstance(end, str) else None
         yield s3.get_object(Bucket=BUCKET, Key=key, Range=byte_range)['Body'].read()
 
 class Files(db.Model):
@@ -154,6 +154,32 @@ class Files(db.Model):
             mimetype='text/plain',
             headers={"Content-Disposition": "attachment;filename={}".format(self.name)})
 
+distributions_plates = db.Table('distributions_plates',
+        db.Column('distribution_uuid', UUID(as_uuid=True), db.ForeignKey('distributions.uuid'), primary_key=True),
+    db.Column('plates_uuid', UUID(as_uuid=True), db.ForeignKey('plates.uuid'),primary_key=True,nullable=True),
+)
+
+class Distribution(db.Model):
+    __tablename__ = 'distributions'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+    
+    plates = db.relationship('Plate', secondary=distributions_plates, lazy='subquery',
+        backref=db.backref('distributions', lazy=True))
+    collection_uuid = db.Column(UUID, db.ForeignKey('collections.uuid'),nullable=False)
+    notes = db.Column(db.String)
+    status = db.Column(db.String) # building,shipping,recreating
+
+class Plan(db.Model):
+    __tablename__ = 'plans'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+
+    status = db.Column(db.String) # planned,executed
+    notes = db.Column(db.String)
+    plan = db.Column(db.JSON, nullable=False)
 
 # Think things
 class Collection(db.Model):
@@ -164,6 +190,7 @@ class Collection(db.Model):
     
     status = db.Column(db.String) # planned, in-progress
 
+    distributions = db.relationship('Distribution',backref='collections')
     parts = db.relationship('Part',backref='collections')
     parent_uuid = db.Column(UUID, db.ForeignKey('collections.uuid'),
             nullable=True)
@@ -347,14 +374,16 @@ class Sample(db.Model):
 
     part_uuid = db.Column(UUID, db.ForeignKey('parts.uuid'), nullable=False)
     derived_from = db.Column(UUID, db.ForeignKey('samples.uuid'), nullable=True)
-
+    
+    status = db.Column(db.String)
+    evidence = db.Column(db.String) # ngs, sanger, TWIST - capitals denote outside folks
 
     pileups = db.relationship('Pileup',backref='sample')
     wells = db.relationship('Well', secondary=samples_wells, lazy='subquery',
         backref=db.backref('samples', lazy=True))
 
     def toJSON(self, full=None):
-        dictionary= {'uuid':self.uuid,'derived_from':self.derived_from,'part_uuid':self.part_uuid}
+        dictionary= {'uuid':self.uuid,'derived_from':self.derived_from,'part_uuid':self.part_uuid, 'status':self.status, 'evidence':self.status}
         if full=='full':
             dictionary['wells'] = [well.uuid for well in self.wells]
             dictionary['pileups'] = [pileup.uuid for pileup in self.pileups]
