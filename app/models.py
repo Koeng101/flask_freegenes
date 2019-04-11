@@ -431,7 +431,7 @@ class Seqrun(db.Model):
     fastqs = db.relationship('Fastq',backref='seqrun')
 
     def toJSON(self,full=None):
-        dictionary= {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'run_id':self.run_id,'notes':self.notes,'sequencing_type':self.sequencing_type,'machine':self.machine,'provider':self.provider}
+        dictionary= {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'name':self.name,'run_id':self.run_id,'machine_id':self.machine_id,'notes':self.notes,'sequencing_type':self.sequencing_type,'machine':self.machine,'provider':self.provider}
         if full=='full':
             dictionary['fastqs'] = [fastq.uuid for fastq in self.fastqs]
         return dictionary
