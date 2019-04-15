@@ -9,3 +9,6 @@ dna_designer
 boto3
 psycopg2-binary
 flask_cors
+rq
+pandas
+numpy

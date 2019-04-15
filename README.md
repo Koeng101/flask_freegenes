@@ -4,6 +4,9 @@ Welcome to the Flask FreeGenes application.
 
 flask run --host=0.0.0.0
 
+# bugs
+- fastq file upload takes too long
+
 ## Notes
 - You must upload file independently and first before applying it to a fastq or pileup
 ```

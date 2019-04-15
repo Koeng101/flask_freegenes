@@ -9,12 +9,8 @@ from .config import SPACES
 from .config import BUCKET        
 from dna_designer import moclo, codon
 
-from rq import Queue
-from rq.job import Job
-from .worker import conn
-
 from .sequence import sequence
-q = Queue(connection=conn)
+
 
 
 def request_to_class(dbclass,json_request):
