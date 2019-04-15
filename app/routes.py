@@ -9,7 +9,7 @@ from .config import SPACES
 from .config import BUCKET        
 from dna_designer import moclo, codon
 
-from .sequence import sequence
+#from .sequence import sequence
 
 
 
