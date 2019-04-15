@@ -9,6 +9,14 @@ from .config import SPACES
 from .config import BUCKET        
 from dna_designer import moclo, codon
 
+from rq import Queue
+from rq.job import Job
+from .worker import conn
+
+from .sequence import sequence
+q = Queue(connection=conn)
+
+
 def request_to_class(dbclass,json_request):
     tags = []
     for k,v in json_request.items():
@@ -342,6 +350,11 @@ def next_gene_id():
     new_id = PREFIX + str(last_num+1).zfill(6)
     return new_id
 
+@ns_part.route('/next_gene_id')
+class NextGeneId(Resource):
+    def get(self):
+        return jsonify({'gene_id': next_gene_id()})
+
 @ns_part_modifiers.route('/gene_id/<uuid>')
 class NewGeneID(Resource):
     @auth.login_required
@@ -532,9 +545,11 @@ seqrun_model = ns_seqrun.model('seqrun', {
     })
 CRUD(ns_seqrun,Seqrun,seqrun_model,'seqrun')
 
+
 @ns_seqrun.route('/seq_verify/<uuid>')
 class SeqDownloadFile(Resource):
-    def get(self,uuid):
+    @auth.login_required
+    def put(self,uuid):
         obj = Seqrun.query.filter_by(uuid=uuid).first()
         indexs = []
         fastqs = [fastq for fastq in obj.fastqs]
@@ -557,6 +572,10 @@ class SeqDownloadFile(Resource):
 
         seqrun = obj.toJSON()
         seqrun['indexes'] = index_dict
+
+        job = q.enqueue_call(func=sequence, args=(seqrun,))
+        obj.job = job.get_id
+        db.session.commit()
         return jsonify(seqrun)
             
             
@@ -566,6 +585,7 @@ class SeqDownloadFile(Resource):
 
 ns_pileup = Namespace('pileup', description='Pileup')
 pileup_model = ns_pileup.model('pileup', {
+    "sample_uuid": fields.String(),
     "status": fields.String(),
     "full_sequence_search": fields.String(),
     "target_sequence": fields.String(),
