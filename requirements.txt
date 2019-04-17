@@ -12,3 +12,4 @@ flask_cors
 rq
 pandas
 numpy
+gunicorn

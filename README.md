@@ -52,4 +52,4 @@ Examples:
 - marker: [gfp]
 - resistance: [ampicillin]
 - vector: [primitive, composite]
-
+- target_organism: [yeast, ecoli]

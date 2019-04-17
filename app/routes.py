@@ -7,7 +7,7 @@ from .config import PREFIX
 from .config import LOGIN_KEY
 from .config import SPACES
 from .config import BUCKET        
-from dna_designer import moclo, codon
+#from dna_designer import moclo, codon
 
 #from .sequence import sequence
 
@@ -277,66 +277,66 @@ class PartLocations(Resource):
 
 ns_part_modifiers = Namespace('part_modification', description='Modify parts')
 
-def modify_part(uuid, function,from_attribute,to_attribute,cls=Part,part_type='cds',status=None):
-    obj = cls.query.filter_by(uuid=uuid).first()
-    if part_type=='cds':
-        if obj.part_type != 'cds' or obj.translation == '' or obj.translation == None:
-            return {'message': 'Not CDS or no translation'}
-    elif obj.status not in [None,'optimized','fixed','checked','twist_checked']:
-        return {'message': 'Checkpoint passed, changing sequence failed'}
-    result = function(getattr(obj, from_attribute))
-    if type(result) == dict:
-        return result
-    if type(result) == str:
-        setattr(obj,to_attribute,result)
-        obj.status = status
-        db.session.commit()
-        return obj.toJSON()
-
-@ns_part_modifiers.route('/optimize/<uuid>')
-class Optimize(Resource):
-    @auth.login_required
-    def put(self,uuid):
-        return jsonify(modify_part(uuid, codon.optimize_protein, 'translation', 'optimized_sequence', status='optimized'))
-
-@ns_part_modifiers.route('/fix/<uuid>')
-class FixCds(Resource):
-    @auth.login_required
-    def put(self,uuid):
-        return jsonify(modify_part(uuid, moclo.fix_cds, 'optimized_sequence', 'optimized_sequence', status='fixed'))
-
-@ns_part_modifiers.route('/optimize_fix/<uuid>')
-class OptimizeFix(Resource):
-    @auth.login_required
-    def put(self,uuid):
-        return jsonify(modify_part(uuid, moclo.optimize_fix, 'translation', 'optimized_sequence', status='fixed'))
-
-@ns_part_modifiers.route('/apply_sites/<uuid>')
-class ApplySites(Resource):
-    @auth.login_required
-    def put(self,uuid):
-        obj = Part.query.filter_by(uuid=uuid).first()
-        obj.synthesized_sequence = moclo.part_type_preparer(obj.part_type,obj.optimized_sequence)
-        obj.status = 'sites_applied'
-        db.session.commit()
-        return jsonify(obj.toJSON())
-
-@ns_part_modifiers.route('/fg_check/<uuid>')
-class FgCheck(Resource):
-    @auth.login_required
-    def put(self,uuid):
-        obj = Part.query.filter_by(uuid=uuid).first()
-        try:
-            result = moclo.input_checker(obj.name,obj.synthesized_sequence,re=False)
-        except Exception as e:
-            print(e)
-            obj.status = 'syn_check_failed'
-            return jsonify({'message': e})
-        if result == 'fg_checked':
-            obj.status = 'syn_checked'
-            db.session.commit()
-            return jsonify(obj.toJSON())
-
+#def modify_part(uuid, function,from_attribute,to_attribute,cls=Part,part_type='cds',status=None):
+#    obj = cls.query.filter_by(uuid=uuid).first()
+#    if part_type=='cds':
+#        if obj.part_type != 'cds' or obj.translation == '' or obj.translation == None:
+#            return {'message': 'Not CDS or no translation'}
+#    elif obj.status not in [None,'optimized','fixed','checked','twist_checked']:
+#        return {'message': 'Checkpoint passed, changing sequence failed'}
+#    result = function(getattr(obj, from_attribute))
+#    if type(result) == dict:
+#        return result
+#    if type(result) == str:
+#        setattr(obj,to_attribute,result)
+#        obj.status = status
+#        db.session.commit()
+#        return obj.toJSON()
+#
+#@ns_part_modifiers.route('/optimize/<uuid>')
+#class Optimize(Resource):
+#    @auth.login_required
+#    def put(self,uuid):
+#        return jsonify(modify_part(uuid, codon.optimize_protein, 'translation', 'optimized_sequence', status='optimized'))
+#
+#@ns_part_modifiers.route('/fix/<uuid>')
+#class FixCds(Resource):
+#    @auth.login_required
+#    def put(self,uuid):
+#        return jsonify(modify_part(uuid, moclo.fix_cds, 'optimized_sequence', 'optimized_sequence', status='fixed'))
+#
+#@ns_part_modifiers.route('/optimize_fix/<uuid>')
+#class OptimizeFix(Resource):
+#    @auth.login_required
+#    def put(self,uuid):
+#        return jsonify(modify_part(uuid, moclo.optimize_fix, 'translation', 'optimized_sequence', status='fixed'))
+#
+#@ns_part_modifiers.route('/apply_sites/<uuid>')
+#class ApplySites(Resource):
+#    @auth.login_required
+#    def put(self,uuid):
+#        obj = Part.query.filter_by(uuid=uuid).first()
+#        obj.synthesized_sequence = moclo.part_type_preparer(obj.part_type,obj.optimized_sequence)
+#        obj.status = 'sites_applied'
+#        db.session.commit()
+#        return jsonify(obj.toJSON())
+#
+#@ns_part_modifiers.route('/fg_check/<uuid>')
+#class FgCheck(Resource):
+#    @auth.login_required
+#    def put(self,uuid):
+#        obj = Part.query.filter_by(uuid=uuid).first()
+#        try:
+#            result = moclo.input_checker(obj.name,obj.synthesized_sequence,re=False)
+#        except Exception as e:
+#            print(e)
+#            obj.status = 'syn_check_failed'
+#            return jsonify({'message': e})
+#        if result == 'fg_checked':
+#            obj.status = 'syn_checked'
+#            db.session.commit()
+#            return jsonify(obj.toJSON())
+#
 def next_gene_id():
     result = db.engine.execute("SELECT parts.gene_id FROM parts WHERE gene_id IS NOT NULL ORDER BY gene_id DESC LIMIT 1")
     for r in result:
