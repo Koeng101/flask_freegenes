@@ -40,7 +40,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 CORS(app)
 db.init_app(app)
 auth = HTTPBasicAuth()
-api = Api(app, version='1.1', title='FreeGenes Collections',
+api = Api(app, version='1.2', title='FreeGenes Collections',
             description='FreeGenes API',
             )
 migrate = Migrate(app, db)
