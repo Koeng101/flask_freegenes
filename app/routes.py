@@ -62,6 +62,8 @@ def crud_post(cls,post,database):
 
 def crud_get(cls,uuid,full=None,jsonify_results=True):
     obj = cls.query.filter_by(uuid=uuid).first()
+    if obj == None:
+        return jsonify([])
     if jsonify_results == True:
         return jsonify(obj.toJSON(full=full))
     else:
