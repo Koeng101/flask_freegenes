@@ -18,12 +18,16 @@ def request_to_class(dbclass,json_request):
     for k,v in json_request.items():
         if k == 'tags' and v != []:
             dbclass.tags = []
-            for tag in v:
+            set_tags = list(set(v))
+            for tag in set_tags:
+
                 tags_in_db = Tag.query.filter_by(tag=tag).all()
                 if len(tags_in_db) == 0:
                     tags.append(Tag(tag=tag))
                 else:
                     tags.append(tags_in_db[0])
+            for tag in tags:
+                dbclass.tags.append(tag)
         elif k == 'files' and v != []:
             for file_uuid in v:
                 files_in_db = File.query.filter_by(uuid=file_uuid).first()
@@ -47,8 +51,6 @@ def request_to_class(dbclass,json_request):
             [dbclass.fastqs.append(Fastq.query.filter_by(uuid=uuid).first()) for uuid in v]
         else:
             setattr(dbclass,k,v)
-    for tag in tags:
-        dbclass.tags.append(tag)
     return dbclass
 
 def crud_get_list(cls,full=None):
@@ -198,7 +200,7 @@ class CollectionAllRoute(Resource):
         '''Get a single collection and everything down the tree'''
         def recursive_down(collection):
             dictionary = collection.toJSON()
-            dictionary['parts'] = [part.toJSON() for part in collection.parts]
+            dictionary['parts'] = [part.toJSON(full='full') for part in collection.parts]
             if len(collection.children) > 0:
                 dictionary['subcollections'] = [recursive_down(subcollection) for subcollection in collection.children]
             return dictionary
