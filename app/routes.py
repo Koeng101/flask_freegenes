@@ -244,6 +244,9 @@ part_model = ns_part.model("part", {
     "translation": fields.String(),
     "collection_id": fields.String(),
     "author_uuid": fields.String(),
+    "ip_check": fields.String(),
+    "ip_check_date": fields.DateTime(),
+    "ip_check_ref": fields.String()
     })
 CRUD(ns_part,Part,part_model,'part')
 @ns_part.route('/get/<key>/<value>')
