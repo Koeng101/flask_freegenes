@@ -13,3 +13,5 @@ rq
 pandas
 numpy
 gunicorn
+jwt
+

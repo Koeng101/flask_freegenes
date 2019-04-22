@@ -20,19 +20,14 @@ import sqlalchemy
 from sqlalchemy.sql import func
 from flask_cors import CORS
 
-from .config import URL
-from .config import SECRET_KEY
-from .config import DEV
-from .config import LOGIN_KEY
-from .config import PREFIX
+from .config import *
 
 from .models import db
 
-from .routes import ns_users, ns_collection, ns_part, ns_part_modifiers, ns_author, ns_organism, ns_robot, ns_pipette, ns_protocol, ns_plate, ns_sample, ns_well, ns_file, ns_seqrun, ns_pileup, ns_fastq
+from .routes import ns_token, ns_collection, ns_part, ns_part_modifiers, ns_author, ns_organism, ns_robot, ns_pipette, ns_protocol, ns_plate, ns_sample, ns_well, ns_file, ns_seqrun, ns_pileup, ns_fastq
 
 # initialization
 app = Flask(__name__)
-app.config['SECRET_KEY'] = SECRET_KEY
 app.config['SQLALCHEMY_DATABASE_URI'] = URL
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -40,13 +35,21 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 CORS(app)
 db.init_app(app)
 auth = HTTPBasicAuth()
-api = Api(app, version='1.2', title='FreeGenes Collections',
-            description='FreeGenes API',
+authorizations = {
+        'token': {
+            'type': 'apiKey',
+            'in': 'header',
+            'name': 'token'}
+        }
+api = Api(app, version='1.1', title=API_TITLE,
+            description=API_DESCRIPTION,
+            authorizations=authorizations
             )
+
 migrate = Migrate(app, db)
 
 
-namespaces = [ns_users, ns_collection, ns_part, ns_part_modifiers, ns_author, ns_organism, ns_robot, ns_pipette, ns_protocol, ns_plate, ns_sample, ns_well, ns_file, ns_seqrun, ns_pileup, ns_fastq]
+namespaces = [ns_token, ns_collection, ns_part, ns_part_modifiers, ns_author, ns_organism, ns_robot, ns_pipette, ns_protocol, ns_plate, ns_sample, ns_well, ns_file, ns_seqrun, ns_pileup, ns_fastq]
 for ns in namespaces:
     api.add_namespace(ns)
 

@@ -12,6 +12,47 @@ from .config import BUCKET
 #from .sequence import sequence
 
 
+###
+
+import os
+import jwt
+from functools import wraps
+from flask import make_response, jsonify
+PUBLIC_KEY = os.environ['PUBLIC_KEY']
+def requires_auth(roles):
+    def requires_auth_decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            def decode_token(token):
+                return jwt.decode(token.encode("utf-8"), PUBLIC_KEY, algorithms='RS256')
+            try:
+                decoded = decode_token(str(request.headers['Token']))
+            except Exception as e:
+                post_token = False
+                if request.json != None:
+                    if 'token' in request.json:
+                        try:
+                            decoded = decode_token(request.json.get('token'))
+                            post_token=True
+                        except Exception as e:
+                            return make_response(jsonify({'message': str(e)}),401)
+                if not post_token:
+                    return make_response(jsonify({'message': str(e)}), 401)
+            if set(roles).isdisjoint(decoded['roles']):
+                return make_response(jsonify({'message': 'Not authorized for this endpoint'}),401)
+            return f(*args, **kwargs)
+        return decorated
+    return requires_auth_decorator
+ns_token = Namespace('auth_test', description='Authorization_test')
+@ns_token.route('/')
+class ResourceRoute(Resource):
+    @ns_token.doc('token_resource',security='token')
+    @requires_auth(['user','moderator','admin'])
+    def get(self):
+        return jsonify({'message': 'Success'})
+###
+
+
 
 def request_to_class(dbclass,json_request):
     tags = []
@@ -83,7 +124,7 @@ def crud_put(cls,uuid,post,database):
     return jsonify(obj.toJSON())
 
 class CRUD():
-    def __init__(self, namespace, cls, model, name):
+    def __init__(self, namespace, cls, model, name, security='token'):
         self.ns = namespace
         self.cls = cls
         self.model = model
@@ -95,9 +136,9 @@ class CRUD():
             def get(self):
                 return crud_get_list(cls)
 
-            @self.ns.doc('{}_create'.format(self.name))
+            @self.ns.doc('{}_create'.format(self.name),security=security)
             @self.ns.expect(model)
-            @auth.login_required
+            @requires_auth(['moderator','admin'])
             def post(self):
                 return crud_post(cls,request.get_json(),db)
 
@@ -107,14 +148,14 @@ class CRUD():
             def get(self,uuid):
                 return crud_get(cls,uuid)
 
-            @self.ns.doc('{}_delete'.format(self.name))
-            @auth.login_required
+            @self.ns.doc('{}_delete'.format(self.name),security=security)
+            @requires_auth(['moderator','admin'])
             def delete(self,uuid):
                 return crud_delete(cls,uuid,db)
 
-            @self.ns.doc('{}_put'.format(self.name))
+            @self.ns.doc('{}_put'.format(self.name),security=security)
             @self.ns.expect(self.model)
-            @auth.login_required
+            @requires_auth(['moderator','admin'])
             def put(self,uuid):
                 return crud_put(cls,uuid,request.get_json(),db)
 
@@ -130,55 +171,10 @@ class CRUD():
             def get(self,uuid):
                 return crud_get(cls,uuid,full='full')
 
+
 #========#
 # Routes #
 #========#
-
-###
-
-ns_users = Namespace('users', description='User login')
-user_model = ns_users.model("user", {
-    "username": fields.String(),
-    "password": fields.String(),
-    "login_key": fields.String()
-    })
-
-@ns_users.route('/')
-class UserPostRoute(Resource):
-    @ns_users.doc('user_create')
-    @ns_users.expect(user_model)
-    def post(self):
-        '''Post new user. Checks for Login key'''
-        username = request.json.get('username')
-        password = request.json.get('password')
-        login_key = request.json.get('login_key')
-        if username is None or password is None:
-            abort(400)    # missing arguments
-        if User.query.filter_by(username=username).first() is not None:
-            abort(400)    # existing user
-        if login_key != LOGIN_KEY:
-            abort(403)  # missing login key
-        user = User(username=username)
-        user.hash_password(password)
-        db.session.add(user)
-        db.session.commit()
-        return jsonify({'username': user.username})
-
-@ns_users.route('/token')
-class TokenRoute(Resource):
-    @ns_users.doc('user_token')
-    @auth.login_required
-    def get(self):
-        token = g.user.generate_auth_token(600)
-        return jsonify({'token': token.decode('ascii'), 'duration': 600})
-
-@ns_users.route('/resource')
-class ResourceRoute(Resource):
-    @ns_users.doc('user_resource')
-    @auth.login_required
-    def get(self):
-        return jsonify({'data': 'Success {}'.format(g.user.username)})
-
         
 ###
 
@@ -299,25 +295,25 @@ ns_part_modifiers = Namespace('part_modification', description='Modify parts')
 #
 #@ns_part_modifiers.route('/optimize/<uuid>')
 #class Optimize(Resource):
-#    @auth.login_required
+#    @requires_auth(['moderator','admin'])
 #    def put(self,uuid):
 #        return jsonify(modify_part(uuid, codon.optimize_protein, 'translation', 'optimized_sequence', status='optimized'))
 #
 #@ns_part_modifiers.route('/fix/<uuid>')
 #class FixCds(Resource):
-#    @auth.login_required
+#    @requires_auth(['moderator','admin'])
 #    def put(self,uuid):
 #        return jsonify(modify_part(uuid, moclo.fix_cds, 'optimized_sequence', 'optimized_sequence', status='fixed'))
 #
 #@ns_part_modifiers.route('/optimize_fix/<uuid>')
 #class OptimizeFix(Resource):
-#    @auth.login_required
+#    @requires_auth(['moderator','admin'])
 #    def put(self,uuid):
 #        return jsonify(modify_part(uuid, moclo.optimize_fix, 'translation', 'optimized_sequence', status='fixed'))
 #
 #@ns_part_modifiers.route('/apply_sites/<uuid>')
 #class ApplySites(Resource):
-#    @auth.login_required
+#    @requires_auth(['moderator','admin'])
 #    def put(self,uuid):
 #        obj = Part.query.filter_by(uuid=uuid).first()
 #        obj.synthesized_sequence = moclo.part_type_preparer(obj.part_type,obj.optimized_sequence)
@@ -327,7 +323,7 @@ ns_part_modifiers = Namespace('part_modification', description='Modify parts')
 #
 #@ns_part_modifiers.route('/fg_check/<uuid>')
 #class FgCheck(Resource):
-#    @auth.login_required
+#    @requires_auth(['moderator','admin'])
 #    def put(self,uuid):
 #        obj = Part.query.filter_by(uuid=uuid).first()
 #        try:
@@ -357,7 +353,8 @@ class NextGeneId(Resource):
 
 @ns_part_modifiers.route('/gene_id/<uuid>')
 class NewGeneID(Resource):
-    @auth.login_required
+    @ns_part.doc('new_gene_id',security='token')
+    @requires_auth(['moderator','admin'])
     def put(self,uuid):
         obj = Part.query.filter_by(uuid=uuid).first()
         obj.gene_id = next_gene_id()
@@ -377,7 +374,8 @@ class AllFiles(Resource):
 class SingleFile(Resource):
     def get(self,uuid):
         return crud_get(Files,uuid)
-    @auth.login_required
+    @ns_file.doc('delete_file',security='token')
+    @requires_auth(['moderator','admin'])
     def delete(self,uuid):
         file = Files.query.get(uuid)
         print(type(SPACES))
@@ -389,7 +387,8 @@ class SingleFile(Resource):
 
 @ns_file.route('/upload')
 class NewFile(Resource):
-    @auth.login_required
+    @ns_file.doc('new_file',security='token')
+    @requires_auth(['moderator','admin'])
     def post(self):
         json_file = json.loads(request.files['json'].read())
         file = request.files['file']
@@ -546,38 +545,38 @@ seqrun_model = ns_seqrun.model('seqrun', {
 CRUD(ns_seqrun,Seqrun,seqrun_model,'seqrun')
 
 
-@ns_seqrun.route('/seq_verify/<uuid>')
-class SeqDownloadFile(Resource):
-    @auth.login_required
-    def put(self,uuid):
-        obj = Seqrun.query.filter_by(uuid=uuid).first()
-        indexs = []
-        fastqs = [fastq for fastq in obj.fastqs]
-        for fastq in fastqs:
-            for_rev = '{}_{}'.format(fastq.index_for,fastq.index_rev)
-            indexs.append(for_rev)
-        indexs = list(set(indexs))
-        index_dict = {}
-        for index in indexs:
-            index_fastqs = []
-            pileups = []
-            for fastq in fastqs:
-                for_rev = '{}_{}'.format(fastq.index_for,fastq.index_rev)
-                if for_rev == index:
-                    index_fastqs.append(fastq.toJSON())
-                    for pileup in fastq.pileups:
-                        pileups.append(pileup.toJSON())
-            pileups = list(dict((v['uuid'],v) for v in pileups).values())
-            index_dict[index] = {'fastqs': index_fastqs, 'pileups':pileups}
-
-        seqrun = obj.toJSON()
-        seqrun['indexes'] = index_dict
-
-        job = q.enqueue_call(func=sequence, args=(seqrun,))
-        obj.job = job.get_id
-        db.session.commit()
-        return jsonify(seqrun)
-            
+#@ns_seqrun.route('/seq_verify/<uuid>')
+#class SeqDownloadFile(Resource):
+#    @requires_auth(['moderator','admin'])
+#    def put(self,uuid):
+#        obj = Seqrun.query.filter_by(uuid=uuid).first()
+#        indexs = []
+#        fastqs = [fastq for fastq in obj.fastqs]
+#        for fastq in fastqs:
+#            for_rev = '{}_{}'.format(fastq.index_for,fastq.index_rev)
+#            indexs.append(for_rev)
+#        indexs = list(set(indexs))
+#        index_dict = {}
+#        for index in indexs:
+#            index_fastqs = []
+#            pileups = []
+#            for fastq in fastqs:
+#                for_rev = '{}_{}'.format(fastq.index_for,fastq.index_rev)
+#                if for_rev == index:
+#                    index_fastqs.append(fastq.toJSON())
+#                    for pileup in fastq.pileups:
+#                        pileups.append(pileup.toJSON())
+#            pileups = list(dict((v['uuid'],v) for v in pileups).values())
+#            index_dict[index] = {'fastqs': index_fastqs, 'pileups':pileups}
+#
+#        seqrun = obj.toJSON()
+#        seqrun['indexes'] = index_dict
+#
+#        job = q.enqueue_call(func=sequence, args=(seqrun,))
+#        obj.job = job.get_id
+#        db.session.commit()
+#        return jsonify(seqrun)
+#            
             
 
 
