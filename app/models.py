@@ -45,9 +45,6 @@ class Tag(db.Model):
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     tag = db.Column(db.String)
 
-
-# TODO fastq and pileup files
-# TODO how to upload files?
 files_parts = db.Table('files_parts',
         db.Column('files_uuid', UUID(as_uuid=True), db.ForeignKey('files.uuid'), primary_key=True),
     db.Column('parts_uuid', UUID(as_uuid=True), db.ForeignKey('parts.uuid'),primary_key=True,nullable=True),
@@ -112,32 +109,7 @@ class Files(db.Model):
             mimetype='text/plain',
             headers={"Content-Disposition": "attachment;filename={}".format(self.name)})
 
-distributions_plates = db.Table('distributions_plates',
-        db.Column('distribution_uuid', UUID(as_uuid=True), db.ForeignKey('distributions.uuid'), primary_key=True),
-    db.Column('plates_uuid', UUID(as_uuid=True), db.ForeignKey('plates.uuid'),primary_key=True,nullable=True),
-)
 
-class Distribution(db.Model):
-    __tablename__ = 'distributions'
-    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
-    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
-    
-    plates = db.relationship('Plate', secondary=distributions_plates, lazy='subquery',
-        backref=db.backref('distributions', lazy=True))
-    collection_uuid = db.Column(UUID, db.ForeignKey('collections.uuid'),nullable=False)
-    notes = db.Column(db.String)
-    status = db.Column(db.String) # building,shipping,recreating
-
-class Plan(db.Model):
-    __tablename__ = 'plans'
-    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
-    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
-
-    status = db.Column(db.String) # planned,executed
-    notes = db.Column(db.String)
-    plan = db.Column(db.JSON, nullable=False)
 
 # Think things
 class Collection(db.Model):
@@ -148,7 +120,6 @@ class Collection(db.Model):
     
     status = db.Column(db.String) # planned, in-progress
 
-    distributions = db.relationship('Distribution',backref='collections')
     parts = db.relationship('Part',backref='collections')
     parent_uuid = db.Column(UUID, db.ForeignKey('collections.uuid'),
             nullable=True)
@@ -224,8 +195,12 @@ class Part(db.Model):
     primer_rev = db.Column(db.String)
     barcode = db.Column(db.String)
     translation = db.Column(db.String)
-
     vbd = db.Column(db.String)
+
+    ip_check = db.Column(db.String(), default='Not_Checked')
+    ip_check_date = db.Column(db.DateTime(timezone=True))
+    ip_check_ref = db.Column(db.String())
+
 
     tags = db.relationship('Tag', secondary=tags_parts, lazy='subquery',
         backref=db.backref('parts', lazy=True))
@@ -241,7 +216,7 @@ class Part(db.Model):
 
     def toJSON(self,full=None):
         # Return collection ID as well
-        dictionary = {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':[tag.tag for tag in self.tags],'name':self.name,'description':self.description,'gene_id':self.gene_id,'part_type':self.part_type,'original_sequence':self.original_sequence,'optimized_sequence':self.optimized_sequence,'synthesized_sequence':self.synthesized_sequence,'full_sequence':self.full_sequence,'genbank':self.genbank,'vector':self.vector,'primer_for':self.primer_for,'primer_rev':self.primer_rev,'barcode':self.barcode,'vbd':self.vbd,'author_uuid':self.author_uuid,'translation':self.translation}
+        dictionary = {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':[tag.tag for tag in self.tags],'name':self.name,'description':self.description,'gene_id':self.gene_id,'part_type':self.part_type,'original_sequence':self.original_sequence,'optimized_sequence':self.optimized_sequence,'synthesized_sequence':self.synthesized_sequence,'full_sequence':self.full_sequence,'genbank':self.genbank,'vector':self.vector,'primer_for':self.primer_for,'primer_rev':self.primer_rev,'barcode':self.barcode,'vbd':self.vbd,'author_uuid':self.author_uuid,'translation':self.translation,'ip_check':self.ip_check,'ip_check_date':self.ip_check_date,'ip_check_ref':self.ip_check_ref}
         if full=='full':
             dictionary['samples'] = [sample.uuid for sample in self.samples]
         return dictionary
