@@ -82,7 +82,7 @@ def request_to_class(dbclass,json_request):
         elif k == 'samples':
             if v != []:
                 dbclass.samples = []
-                [dbclass.samples.append(Sample.query.filter_by(uuid=uuid).first()) for uuid in v] # In order to sue 
+                [dbclass.samples.append(Sample.query.filter_by(uuid=uuid).first()) for uuid in v] # In order to sue
         elif k == 'wells' and v != []:
             dbclass.wells = []
             [dbclass.samples.append(Well.query.filter_by(uuid=uuid).first()) for uuid in v]
