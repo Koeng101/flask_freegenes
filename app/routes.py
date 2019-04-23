@@ -79,7 +79,7 @@ def request_to_class(dbclass,json_request):
         elif k == 'plates' and v != []:
             dbclass.plates = []
             [dbclass.plates.append(Plate.query.filter_by(uuid=uuid).first()) for uuid in v]
-        elif k == 'samples' and v != []:
+        elif k == 'samples':
             dbclass.samples = []
             [dbclass.samples.append(Sample.query.filter_by(uuid=uuid).first()) for uuid in v] # In order to sue 
         elif k == 'wells' and v != []:
@@ -502,6 +502,8 @@ ns_sample = Namespace('samples', description='Samples')
 sample_model = ns_sample.model('sample', {
     "part_uuid": fields.String(),
     "derived_from": fields.String(),
+    "status": fields.String(),
+    "evidence": fields.String(),
     "wells": fields.String()
     })
 CRUD(ns_sample,Sample,sample_model,'sample')
