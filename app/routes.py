@@ -80,8 +80,11 @@ def request_to_class(dbclass,json_request):
             dbclass.plates = []
             [dbclass.plates.append(Plate.query.filter_by(uuid=uuid).first()) for uuid in v]
         elif k == 'samples':
-            dbclass.samples = []
-            [dbclass.samples.append(Sample.query.filter_by(uuid=uuid).first()) for uuid in v] # In order to sue 
+            if v == []:
+                pass
+            else:
+                dbclass.samples = []
+                [dbclass.samples.append(Sample.query.filter_by(uuid=uuid).first()) for uuid in v] # In order to sue 
         elif k == 'wells' and v != []:
             dbclass.wells = []
             [dbclass.samples.append(Well.query.filter_by(uuid=uuid).first()) for uuid in v]
