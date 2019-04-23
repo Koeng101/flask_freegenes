@@ -216,7 +216,7 @@ class Part(db.Model):
 
     def toJSON(self,full=None):
         # Return collection ID as well
-        dictionary = {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':[tag.tag for tag in self.tags],'name':self.name,'description':self.description,'gene_id':self.gene_id,'part_type':self.part_type,'original_sequence':self.original_sequence,'optimized_sequence':self.optimized_sequence,'synthesized_sequence':self.synthesized_sequence,'full_sequence':self.full_sequence,'genbank':self.genbank,'vector':self.vector,'primer_for':self.primer_for,'primer_rev':self.primer_rev,'barcode':self.barcode,'vbd':self.vbd,'author_uuid':self.author_uuid,'translation':self.translation,'ip_check':self.ip_check,'ip_check_date':self.ip_check_date,'ip_check_ref':self.ip_check_ref}
+        dictionary = {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':[tag.tag for tag in self.tags],'name':self.name,'description':self.description,'gene_id':self.gene_id,'part_type':self.part_type,'original_sequence':self.original_sequence,'optimized_sequence':self.optimized_sequence,'synthesized_sequence':self.synthesized_sequence,'full_sequence':self.full_sequence,'genbank':self.genbank,'vector':self.vector,'primer_for':self.primer_for,'primer_rev':self.primer_rev,'barcode':self.barcode,'vbd':self.vbd,'author_uuid':self.author_uuid,'collection_id':self.collection_id,'translation':self.translation,'ip_check':self.ip_check,'ip_check_date':self.ip_check_date,'ip_check_ref':self.ip_check_ref}
         if full=='full':
             dictionary['samples'] = [sample.uuid for sample in self.samples]
         return dictionary
