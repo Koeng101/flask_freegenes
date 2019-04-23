@@ -13,5 +13,7 @@ rq
 pandas
 numpy
 gunicorn
-pyjwt
+
+cryptography
+jwt
 
