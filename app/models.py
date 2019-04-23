@@ -316,7 +316,7 @@ class Sample(db.Model):
         backref=db.backref('samples', lazy=True))
 
     def toJSON(self, full=None):
-        dictionary= {'uuid':self.uuid,'derived_from':self.derived_from,'part_uuid':self.part_uuid, 'status':self.status, 'evidence':self.status}
+        dictionary= {'uuid':self.uuid,'derived_from':self.derived_from,'part_uuid':self.part_uuid, 'status':self.status, 'evidence':self.evidence}
         if full=='full':
             dictionary['wells'] = [well.uuid for well in self.wells]
             dictionary['pileups'] = [pileup.uuid for pileup in self.pileups]
