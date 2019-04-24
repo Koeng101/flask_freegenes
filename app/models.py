@@ -276,7 +276,8 @@ class Plate(db.Model):
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
     status = db.Column(db.String) # planned, processing, complete
-    
+
+    plate_vendor_id = db.Column(db.String)
     breadcrumb = db.Column(db.String)
     plate_name = db.Column(db.String(32))
     plate_form = db.Column(db.String(32))
@@ -287,7 +288,7 @@ class Plate(db.Model):
     protocol_uuid = db.Column(UUID, db.ForeignKey('protocols.uuid'), nullable=True)
 
     def toJSON(self,full=None):
-        dictionary= {'uuid': self.uuid, 'breadcrumb':self.breadcrumb, 'plate_name': self.plate_name, 'plate_form': self.plate_form, 'plate_type': self.plate_type, 'status': self.status, 'protocol_uuid':self.protocol_uuid}
+        dictionary= {'uuid': self.uuid, 'plate_vendor_id':self.plate_vendor_id, 'breadcrumb':self.breadcrumb, 'plate_name': self.plate_name, 'plate_form': self.plate_form, 'plate_type': self.plate_type, 'status': self.status, 'protocol_uuid':self.protocol_uuid}
         if full=='full':
             dictionary['wells'] = [well.uuid for well in self.wells]
         return dictionary

@@ -20,6 +20,7 @@ files = {
 r = requests.post(url, files=files,auth=())
 ```
 
+`psql -d '' -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'`
 
 
 # Virtual build definition

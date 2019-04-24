@@ -471,6 +471,7 @@ CRUD(ns_protocol,Protocol,protocol_model,'protocol')
 
 ns_plate = Namespace('plates', description='Plates')
 plate_model = ns_plate.model('plate', {
+    "plate_vendor_id": fields.String(),
     "breadcrumb": fields.String(),
     "plate_name": fields.String(),
     "plate_form": fields.String(),
