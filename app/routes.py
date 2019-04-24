@@ -205,6 +205,7 @@ class CollectionAllRoute(Resource):
 
 @ns_collection.route('/part_status/<uuid>/<key>')
 class CollectionPartStatus(Resource):
+    @ns_collection.doc('collection_get_part_status')
     def get(self,key,uuid):
         sql = "SELECT parts.{}, parts.status FROM parts WHERE parts.collection_id='{}'".format(key,uuid)
         result = db.engine.execute(sql)
@@ -213,8 +214,9 @@ class CollectionPartStatus(Resource):
             dictionary[str(r[0])] = r[1]
         return jsonify(dictionary)
 
-@ns_collection.route('/part_status/<uuid>/<key>/<status>')
+@ns_collection.route('/part_status/search/<uuid>/<key>/<status>')
 class CollectionPartStatus(Resource):
+    @ns_collection.doc('collection_get_part_status_search')
     def get(self,key,uuid,status):
         sql = "SELECT parts.{}, parts.status FROM parts WHERE parts.collection_id='{}' AND parts.status='{}'".format(key,uuid,status)
         result = db.engine.execute(sql)
