@@ -1,6 +1,6 @@
 import json
 from .models import *
-from flask_restplus import Api, Resource, fields, Namespace 
+from flask_restplus import Api, Resource, fields, Namespace, marshal, SchemaModel
 from flask import Flask, abort, request, jsonify, g, url_for, redirect
 
 from .config import PREFIX
@@ -10,7 +10,8 @@ from .config import BUCKET
 #from dna_designer import moclo, codon
 
 #from .sequence import sequence
-
+from .schemas import schema_generator,collection_schema
+from jsonschema import validate
 
 ###
 
@@ -98,7 +99,7 @@ def request_to_class(dbclass,json_request):
 def crud_get_list(cls,full=None):
     return jsonify([obj.toJSON(full=full) for obj in cls.query.all()])
 
-def crud_post(cls,post,database):
+def crud_post(cls,post,database,uuid=None):
     obj = request_to_class(cls(),post)
     database.session.add(obj)
     database.session.commit()
@@ -118,36 +119,57 @@ def crud_delete(cls,uuid,database):
     database.session.commit()
     return jsonify({'success':True})
 
-def crud_put(cls,uuid,post,database):
+def crud_put(cls,post,database,uuid=None):
     obj = cls.query.filter_by(uuid=uuid).first()
     updated_obj = request_to_class(obj,post)
     db.session.commit()
     return jsonify(obj.toJSON())
 
 class CRUD():
-    def __init__(self, namespace, cls, model, name, security='token'):
+    def __init__(self, namespace, cls, model, name, schema=None, security='token'):
         self.ns = namespace
         self.cls = cls
         self.model = model
         self.name = name
 
+        def validate_json(obj, schema, output_type):
+            try:
+                validate(obj, schema=schema_generator(output_type,schema))
+            except Exception as e:
+                print(e)
+                return make_response(jsonify({'message': 'schema validation failed'}), 400)
+            return True
+
+        def validate_request(obj, schema, output_type):
+            result = validate_json(obj.json, schema, output_type)
+            if result == True:
+                return obj
+            else:
+                return make_response(jsonify({'message': 'schema validation failed'}), 400)
+
+        def post_put(input_obj,schema,func, operation,uuid=None,cls=cls,db=db):
+            if validate_json(input_obj,schema,operation) != True:
+                return make_response(jsonify({'message': 'schema validation failed'}), 400)
+            output_obj = func(cls,input_obj,db,uuid=uuid)
+            return validate_request(output_obj,schema,'output_single')
+
         @self.ns.route('/')
         class ListRoute(Resource):
             @self.ns.doc('{}_list'.format(self.name))
             def get(self):
-                return crud_get_list(cls)
+                return validate_request(crud_get_list(cls),schema,'output_list')
 
             @self.ns.doc('{}_create'.format(self.name),security=security)
             @self.ns.expect(model)
             @requires_auth(['moderator','admin'])
             def post(self):
-                return crud_post(cls,request.get_json(),db)
+                return post_put(requests.get_json(),schema,crud_post,'input')
 
         @self.ns.route('/<uuid>')
         class NormalRoute(Resource):
             @self.ns.doc('{}_get'.format(self.name))
             def get(self,uuid):
-                return crud_get(cls,uuid)
+                return validate_request(crud_get(cls,uuid),schema,'output_single')
 
             @self.ns.doc('{}_delete'.format(self.name),security=security)
             @requires_auth(['moderator','admin'])
@@ -158,20 +180,19 @@ class CRUD():
             @self.ns.expect(self.model)
             @requires_auth(['moderator','admin'])
             def put(self,uuid):
-                return crud_put(cls,uuid,request.get_json(),db)
+                return post_put(requests.get_json(),schema,crud_put,'put',uuid=uuid)
 
         @self.ns.route('/full/')
         class FullListRoute(Resource):
             @self.ns.doc('{}_full'.format(self.name))
             def get(self):
-                return crud_get_list(cls,full='full')
+                return validate_request(crud_get_list(cls,full='full'),schema,'output_list_full')
 
         @self.ns.route('/full/<uuid>')
         class FullRoute(Resource):
             @self.ns.doc('{}_full_single'.format(self.name))
             def get(self,uuid):
-                return crud_get(cls,uuid,full='full')
-
+                return validate_request(crud_get(cls,uuid,full='full'),schema,'output_single_full')
 
 #========#
 # Routes #
@@ -180,14 +201,9 @@ class CRUD():
 ###
 
 ns_collection = Namespace('collections', description='Collections')
-collection_model = ns_collection.model("collection", {
-    "name": fields.String(),
-    "readme": fields.String(),
-    "tags": fields.List(fields.String),
-    "parent_uuid": fields.String()
-    })
+collection_model = ns_collection.schema_model("collection", schema_generator('input',collection_schema))
 
-CRUD(ns_collection,Collection,collection_model,'collection')
+CRUD(ns_collection,Collection,collection_model,'collection',schema=collection_schema)
 
 @ns_collection.route('/recurse/<uuid>')
 class CollectionAllRoute(Resource):

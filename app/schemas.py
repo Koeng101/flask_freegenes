@@ -15,7 +15,7 @@ generic_date = {'type': 'string','format':'date-time'}
 optional_date = {'oneOf': [generic_date,null]}
 
 name = {'type': 'string','minLength': 3,'maxLength': 30}
-tags = {'type': 'array', 'items': optional_string}
+tags = {'type': 'array', 'items': generic_string}
 to_many = {'type': 'array', 'items': {'oneOf': [uuid,null]}}
 #many_to_many = {'anyOf': [{'type': 'array','items': uuid},{'type': 'array','items': null}]}
 
@@ -23,7 +23,7 @@ def properties_generator(params,keys):
     return {key: params[key] for key in keys}
 
 def object_generator(params,keys,required,additionalProperties=False):
-    return {"$schema": "http://json-schema.org/schema#",
+    return {#"$schema": "http://json-schema.org/schema#",
             "type": "object",
             "properties": properties_generator(params,keys),
             "required": required,
@@ -35,28 +35,32 @@ def list_generator(name,params,keys,required):
             "items": {"$ref": "#/definitions/{}".format(name)}}
 
 def schema_generator(output_scheme, schema):
-    def input_generator(inputs,schema,additionalProperties=False):
-        return object_generator(schema['params'],list(set([item for sublist in [schema['input'][x] for x in inputs] for item in sublist])),schema['input']['required'],additionalProperties)
+    def input_generator(inputs,schema,required='schema',additionalProperties=False):
+        if required == 'schema':
+            required = schema['input']['required']
+        else:
+            required=[]
+        return object_generator(schema['params'],list(set([item for sublist in [schema['input'][x] for x in inputs] for item in sublist])),required,additionalProperties)
     # inputs
-    if output_scheme == 'input_outward':
-        return input_generator(['required','optional'],schema,additionalProperties=True)
-    elif output_scheme == 'input_inward':
-        return input_generator(['required','optional','optional_hidden'],schema)
+    if output_scheme == 'input':
+        return input_generator(['required','optional'],schema)
+    elif output_scheme == 'put':
+        return input_generator(['required','optional'],schema,required=[])
 
     # ouputs
     elif output_scheme == 'output_single':
         outs = schema['output']['base']
-        return object_generator(schema['params'],outs,outs)
+        return object_generator({**schema['params'],**schema['output']['params']},outs,outs)
     elif output_scheme == 'output_single_full':
         outs = schema['output']['base'] + schema['output']['full']
-        return object_generator(schema['params'],outs,outs)
+        return object_generator({**schema['params'],**schema['output']['params']},outs,outs)
 
-    elif output_scheme == 'output_all':
+    elif output_scheme == 'output_list':
         outs = schema['output']['base']
-        return list_generator(schema['name'],schema['params'],outs,outs)
-    elif output_scheme == 'output_all_full':
+        return list_generator(schema['name'],{**schema['params'],**schema['output']['params']},outs,outs)
+    elif output_scheme == 'output_list_full':
         outs = schema['output']['base'] + schema['output']['full']
-        return list_generator(schema['name'],schema['params'],outs,outs)
+        return list_generator(schema['name'],{**schema['params'],**schema['output']['params']},outs,outs)
     
     raise ValueError('{} not a valid output_scheme')
 
@@ -64,21 +68,23 @@ def schema_generator(output_scheme, schema):
 collection_schema = {
         'name': 'collection',
         'params': {
-            'uuid': uuid,
+            'uuid': optional_uuid,
             'time_created': generic_date,
             'time_updated': optional_date,
             'parts': to_many,
-            'parent_uuid': optional_string,
+            'parent_uuid': uuid,
             'tags': tags,
             'name': name,
             'readme': generic_string,
             },
         'input': {
-            'required': ['name','readme','tags'],
-            'optional': ['parent_uuid'],
-            'optional_hidden': ['uuid']
+            'required': ['name','readme'],
+            'optional': ['parent_uuid','tags', 'uuid'],
             },
         'output': {
+            'params': {
+                'parent_uuid': optional_uuid,
+                },
             'base': ['uuid','time_created','time_updated','name','readme','tags','parent_uuid'],
             'full': ['parts']
             }
@@ -88,11 +94,18 @@ collection_schema = {
 
 ###
 collection_test = {
-        'name': 'Test',
-        'readme': 'foo bar!',
-        'tags': ['woo', 'baz'],
-        'parent_uuid': '89fbacae-c548-4a92-a370-3ffe81c80a70'
-        }
+  "readme": "foobar",
+  "name": "beepboop",
+  "tags": [
+    "tests"
+  ],
+#"uuid": "89fbacae-c548-4a92-a370-3ffe81c80a70"
+}
+print(schema_generator('input', collection_schema))
+
+print(validate(collection_test,schema_generator('input', collection_schema)))
+
+
 
 #print(validate(requests.get('http://127.0.0.1:5000/collections/1c1976d1-6dbe-4f32-969c-fbf40bdd2640').json(),schema=schema_generator('output_single',collection_schema)))
 #print(validate(requests.get('http://127.0.0.1:5000/collections/').json(),schema=schema_generator('output_all',collection_schema)))
