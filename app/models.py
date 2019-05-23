@@ -16,12 +16,6 @@ from passlib.apps import custom_app_context as pwd_context
 db = SQLAlchemy()
 auth = HTTPBasicAuth()
 
-def t_updated(x):
-    if x == None:
-        return x
-    else:
-        return x.isoformat()
-
 #################
 ### FreeGenes ###
 #################
@@ -122,8 +116,10 @@ class Collection(db.Model):
     __tablename__ = 'collections'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
     
+    status = db.Column(db.String) # planned, in-progress
+
     parts = db.relationship('Part',backref='collections')
     parent_uuid = db.Column(UUID, db.ForeignKey('collections.uuid'),
             nullable=True)
@@ -136,7 +132,7 @@ class Collection(db.Model):
     readme = db.Column(db.String)
 
     def toJSON(self,full=None):
-        dictionary = {'uuid':self.uuid,'time_created':self.time_created.isoformat(),'time_updated':t_updated(self.time_updated),'tags':[tag.tag for tag in self.tags],'name':self.name,'readme':self.readme,'parent_uuid':self.parent_uuid}
+        dictionary = {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':[tag.tag for tag in self.tags],'name':self.name,'readme':self.readme,'parent_uuid':self.parent_uuid}
         if full=='full':
             dictionary['parts'] = [part.uuid for part in self.parts]
         return dictionary
@@ -162,7 +158,7 @@ class Organism(db.Model):
     __tablename__ = 'organisms'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
     name = db.Column(db.String)
     description = db.Column(db.String)
@@ -179,7 +175,7 @@ class Part(db.Model):
     __tablename__ = 'parts'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
     status = db.Column(db.String) # null, optimized, fixed, sites_applied, syn_checked (syn_check_failed),   
 
@@ -228,9 +224,6 @@ class Part(db.Model):
 # Do things
 class Robot(db.Model):
     __tablename__ = 'robots'
-    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
-
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     name = db.Column(db.String)
     notes = db.Column(db.String)
@@ -245,9 +238,6 @@ class Robot(db.Model):
 
 class Pipette(db.Model):
     __tablename__ = 'pipettes'
-    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
-
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     pipette_type = db.Column(db.String) # TODO enum here
     mount_side = db.Column(db.String)
@@ -260,7 +250,7 @@ class Protocol(db.Model):
     __tablename__ = 'protocols'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
     description = db.Column(db.String())
     protocol = db.Column(db.JSON, nullable=False)
@@ -284,7 +274,7 @@ class Plate(db.Model):
     __tablename__ = 'plates'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
     status = db.Column(db.String) # planned, processing, complete
 
     plate_vendor_id = db.Column(db.String)
@@ -314,7 +304,7 @@ class Sample(db.Model):
     __tablename__ = 'samples'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
     part_uuid = db.Column(UUID, db.ForeignKey('parts.uuid'), nullable=False)
     derived_from = db.Column(UUID, db.ForeignKey('samples.uuid'), nullable=True)
@@ -337,7 +327,7 @@ class Well(db.Model): # Constrain Wells to being unique to each plate
     __tablename__ = 'wells'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
     address = db.Column(db.String(32), nullable=False)
     volume = db.Column(db.Float, nullable=True) # ul - if null, dry
@@ -362,7 +352,7 @@ class Seqrun(db.Model):
     __tablename__ = 'seqruns'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
     name = db.Column(db.String) # run name
     run_id = db.Column(db.String) # Sequencing provider id
@@ -391,7 +381,7 @@ class Pileup(db.Model):
     __tablename__ = 'pileups'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
     status = db.Column(db.String) # mutation,confirmed,etc
     full_search_sequence = db.Column(db.String)
@@ -414,7 +404,7 @@ class Fastq(db.Model):
     __tablename__ = 'fastqs'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
     seqrun_uuid = db.Column(UUID, db.ForeignKey('seqruns.uuid'), nullable=False)
     name = db.Column(db.String)
 
