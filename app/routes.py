@@ -142,7 +142,7 @@ class CRUD():
             @requires_auth(['moderator','admin'])
             def post(self):
                 if 'uuid' in request.get_json():
-                    if cls.query.filter_by(uuid=request.get_json()['uuid']).first() == []:
+                    if cls.query.filter_by(uuid=request.get_json()['uuid']).first() == None:
                         return crud_post(cls,request.get_json(),db)
                     else:
                         return make_response(jsonify({'message': 'UUID taken'}),501)
