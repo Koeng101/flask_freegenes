@@ -118,8 +118,6 @@ class Collection(db.Model):
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
     
-    status = db.Column(db.String) # planned, in-progress
-
     parts = db.relationship('Part',backref='collections')
     parent_uuid = db.Column(UUID, db.ForeignKey('collections.uuid'),
             nullable=True)
@@ -132,7 +130,7 @@ class Collection(db.Model):
     readme = db.Column(db.String)
 
     def toJSON(self,full=None):
-        dictionary = {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'tags':[tag.tag for tag in self.tags],'name':self.name,'readme':self.readme,'parent_uuid':self.parent_uuid}
+        dictionary = {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'tags':[tag.tag for tag in self.tags],'name':self.name,'readme':self.readme,'parent_uuid':self.parent_uuid}
         if full=='full':
             dictionary['parts'] = [part.uuid for part in self.parts]
         return dictionary
