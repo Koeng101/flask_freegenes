@@ -141,10 +141,12 @@ class CRUD():
             @self.ns.expect(model)
             @requires_auth(['moderator','admin'])
             def post(self):
-                if crud_get(cls,uuid) == []:
-                    return crud_post(cls,request.get_json(),db)
-                else:
-                    return make_response(jsonify({'message': 'UUID taken'}),501)
+                if 'uuid' in request.get_json():
+                    if cls.query.filter_by(uuid=uuid).first() == []:
+                        return crud_post(cls,request.get_json(),db)
+                    else:
+                        return make_response(jsonify({'message': 'UUID taken'}),501)
+                return crud_post(cls,request.get_json(),db)
 
         @self.ns.route('/<uuid>')
         class NormalRoute(Resource):
