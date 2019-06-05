@@ -113,7 +113,11 @@ def crud_get(cls,uuid,full=None,jsonify_results=True):
     else:
         return obj
 
-def crud_delete(cls,uuid,database):
+def crud_delete(cls,uuid,database,constraints={}):
+    if constraints != {}:
+        for constraint in constaints['delete']:
+            if cls.query.filter(**{constraint: uuid}).first() != None:
+                return make_response(jsonify({'message': 'UUID used elsewhere'}),501)
     database.session.delete(cls.query.get(uuid))
     database.session.commit()
     return jsonify({'success':True})
@@ -125,11 +129,12 @@ def crud_put(cls,uuid,post,database):
     return jsonify(obj.toJSON())
 
 class CRUD():
-    def __init__(self, namespace, cls, model, name, security='token'):
+    def __init__(self, namespace, cls, model, name, constraints={}, security='token'):
         self.ns = namespace
         self.cls = cls
         self.model = model
         self.name = name
+        self.constraints = constraints
 
         @self.ns.route('/')
         class ListRoute(Resource):
@@ -157,7 +162,7 @@ class CRUD():
             @self.ns.doc('{}_delete'.format(self.name),security=security)
             @requires_auth(['moderator','admin'])
             def delete(self,uuid):
-                return crud_delete(cls,uuid,db)
+                return crud_delete(cls,uuid,db,constraints)
 
             @self.ns.doc('{}_put'.format(self.name),security=security)
             @self.ns.expect(self.model)
@@ -515,7 +520,7 @@ sample_model = ns_sample.model('sample', {
     "evidence": fields.String(),
     "wells": fields.String()
     })
-CRUD(ns_sample,Sample,sample_model,'sample')
+CRUD(ns_sample,Sample,sample_model,'sample',constraints={'delete': ['derived_from']})
 
 @ns_sample.route('/validation/<uuid>')
 class SeqDownloadFile(Resource):
