@@ -115,7 +115,7 @@ def crud_get(cls,uuid,full=None,jsonify_results=True):
 
 def crud_delete(cls,uuid,database,constraints={}):
     if constraints != {}:
-        for constraint in constaints['delete']:
+        for constraint in constraints['delete']:
             if cls.query.filter(**{constraint: uuid}).first() != None:
                 return make_response(jsonify({'message': 'UUID used elsewhere'}),501)
     database.session.delete(cls.query.get(uuid))
