@@ -282,31 +282,27 @@ class Pipette(db.Model):
     notes = db.Column(db.String)
 
 
-class Protocol(db.Model):
-    __tablename__ = 'protocols'
-    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
-    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
-
-    description = db.Column(db.String())
-    protocol = db.Column(db.JSON, nullable=False)
-
-    status = db.Column(db.String(), default='planned') # planned, executed 
-    plates = db.relationship('Plate',backref='protocol') # TODO ADD plates in toJSON
-    protocol_type = db.Column(db.String()) # human, opentrons
-
-    robot_uuid = db.Column(UUID, db.ForeignKey('robots.uuid'),
-            nullable=True)
-
-    def toJSON(self,full=None):
-        dictionary= {'uuid': self.uuid, 'description': self.description, 'protocol': self.protocol, 'status': self.status, 'protocol_type':self.protocol_type}
-        if full=='full':
-            dictionary['plates'] = [plate.uuid for plate in self.plates]
-        return dictionary
 
 # Are things
 
+# Plates #
+plate_schema = {
+    "uuid": uuid,
+    "status": {'type': 'string', 'enum': ['Planned','Stocked','Trashed']}
+  "plate_vendor_id": generic_string,
+  "breadcrumb": generic_string,
+  "plate_name": generic_string,
+  "plate_form": {'type': 'string', 'enum': ['standard96,deep96,standard384,deep384']},
+  "plate_type": {'type': 'string', 'enum': ['archive_glycerol_stock','glycerol_stock','culture','distro']},
+  "notes": generic_string,
+  "protocol_uuid": uuid
+}
+plate_required = ['status','breadcrumb','plate_name','plate_form','plate_type']
+
 class Plate(db.Model):
+    validator = schema_generator(plate_schema,plate_required)
+    put_validator = schema_generator(plate_schema,[])
+
     __tablename__ = 'plates'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
@@ -331,12 +327,24 @@ class Plate(db.Model):
 
 # Samples #
 
+sample_schema = {
+    "uuid": uuid,
+    "part_uuid": uuid,
+    "status": {'type': 'string', 'enum': ['Confirmed', 'Mutated']},
+    "derived_from": uuid,
+    "evidence": {'type': 'string', 'enum': ['Twist_Confirmed','NGS','Sanger','Nanopore']},
+    "wells": force_to_many,
+}
+sample_required = ['part_uuid','status','evidence']
 
 samples_wells = db.Table('samples_wells',
     db.Column('samples_uuid', UUID(as_uuid=True), db.ForeignKey('samples.uuid'), primary_key=True),
     db.Column('wells_uuid', UUID(as_uuid=True), db.ForeignKey('wells.uuid'), primary_key=True, nullable=True),
 )
 class Sample(db.Model):
+    validator = schema_generator(sample_schema,sample_required)
+    put_validator = schema_generator(sample_schema,[])
+
     __tablename__ = 'samples'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
@@ -406,6 +414,62 @@ class Well(db.Model): # Constrain Wells to being unique to each plate
         dictionary={'uuid':self.uuid,'address':self.address,'volume':self.volume,'quantity':self.quantity,'media':self.media,'well_type':self.well_type,'organism':self.organism,'plate_uuid':self.plate_uuid} 
         if full=='full':
             dictionary['samples'] = [sample.uuid for sample in self.samples]
+        return dictionary
+
+# Protocol things
+
+protocolschema_schema = {
+    "uuid": uuid,
+    "name": generic_string,
+    "description": generic_string,
+    "schema": {'type': 'object'}
+}
+protocolschema_required = ['name','description','schema']
+class ProtocolSchema(db.Model):
+    validator = schema_generator(protocolschema_schema,protocolschema_required)
+    put_validator = schema_generator(protocolschema_schema,[])
+
+    __tablename__ = 'protocolschema'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+
+    name = db.Column(db.String())
+    description = db.Column(db.String())
+
+    schema = db.Column(db.JSON, nullable=False)
+
+
+
+protocol_schema = {
+    "uuid": uuid,
+    "description": generic_string,
+    "protocol": {'type': 'object'},
+    "status": {'type': 'string', 'enum':['Executed','Planned']},
+    "protocolschema": uuid,
+}
+protocol_required = ['protocol','protocolschema']
+class Protocol(db.Model):
+    validator = schema_generator(protocol_schema,protocol_required)
+    put_validator = schema_generator(protocol_schema,[])
+
+    __tablename__ = 'protocols'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+
+    description = db.Column(db.String())
+    protocol = db.Column(db.JSON, nullable=False)
+
+    plates = db.relationship('Plate',backref='protocol') # TODO ADD plates in toJSON
+
+    robot_uuid = db.Column(UUID, db.ForeignKey('robots.uuid'),
+            nullable=True)
+
+    def toJSON(self,full=None):
+        dictionary= {'uuid': self.uuid, 'description': self.description, 'protocol': self.protocol, 'status': self.status, 'protocol_type':self.protocol_type}
+        if full=='full':
+            dictionary['plates'] = [plate.uuid for plate in self.plates]
         return dictionary
 
 
