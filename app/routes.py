@@ -1,4 +1,6 @@
 import json
+from jsonschema import validate
+
 from .models import *
 from flask_restplus import Api, Resource, fields, Namespace 
 from flask import Flask, abort, request, jsonify, g, url_for, redirect
@@ -129,7 +131,7 @@ def crud_put(cls,uuid,post,database):
     return jsonify(obj.toJSON())
 
 class CRUD():
-    def __init__(self, namespace, cls, model, name, constraints={}, security='token'):
+    def __init__(self, namespace, cls, model, name, constraints={}, security='token',validate_json=False):
         self.ns = namespace
         self.cls = cls
         self.model = model
@@ -146,6 +148,11 @@ class CRUD():
             @self.ns.expect(model)
             @requires_auth(['moderator','admin'])
             def post(self):
+                if validate_json == True:
+                    try:
+                        validate(instance=request.get_json(),schema=cls.validator)
+                    except Exception as e:
+                        return make_response(jsonify({'message': 'Schema validation failed: {}'.format(e)}),400)
                 if 'uuid' in request.get_json():
                     if cls.query.filter_by(uuid=request.get_json()['uuid']).first() == None:
                         return crud_post(cls,request.get_json(),db)
@@ -539,15 +546,8 @@ class SeqDownloadFile(Resource):
 ###
 
 ns_well = Namespace('wells', description='Wells')
-well_model = ns_well.model('well', {
-    "address": fields.String(),
-    "volume": fields.Float(),
-    "quantity": fields.Float(),
-    "media": fields.String(),
-    "well_type": fields.String(),
-    "plate_uuid": fields.String()
-    })
-CRUD(ns_well,Well,well_model,'well')
+well_model = ns_well.schema_model('well', Well.validator)
+CRUD(ns_well,Well,well_model,'well',validate_json=True)
 
 ###
 

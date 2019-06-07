@@ -16,6 +16,44 @@ from passlib.apps import custom_app_context as pwd_context
 db = SQLAlchemy()
 auth = HTTPBasicAuth()
 
+##################
+### Validators ###
+##################
+
+from jsonschema import validate
+import json
+import string
+
+# Shared
+uuid_regex = '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+null = {'type': 'null'}
+
+uuid = {'type': 'string','pattern': uuid_regex}
+optional_uuid = {'oneOf': [uuid,null]}
+
+generic_string = {'type': 'string'}
+optional_string ={'oneOf': [generic_string,null]}
+
+generic_num = { "type": "number" }
+optional_num = {'oneOf': [generic_num,null]}
+
+generic_date = {'type': 'string','format':'date-time'}
+optional_date = {'oneOf': [generic_date,null]}
+
+name = {'type': 'string','minLength': 3,'maxLength': 30}
+tags = {'type': 'array', 'items': optional_string}
+force_to_many = {'type': 'array', 'items': uuid}
+to_many = {'type': 'array', 'items': {'oneOf': [uuid,null]}}
+#many_to_many = {'anyOf': [{'type': 'array','items': uuid},{'type': 'array','items': null}]}
+
+def schema_generator(properties,required,additionalProperties=False):
+    return {"$schema": "http://json-schema.org/schema#",
+            "type": "object",
+            "properties": properties,
+            "required": required,
+            "additionalProperties": additionalProperties}
+
+
 #################
 ### FreeGenes ###
 #################
@@ -291,13 +329,13 @@ class Plate(db.Model):
             dictionary['wells'] = [well.uuid for well in self.wells]
         return dictionary
 
+# Samples #
 
 
 samples_wells = db.Table('samples_wells',
     db.Column('samples_uuid', UUID(as_uuid=True), db.ForeignKey('samples.uuid'), primary_key=True),
     db.Column('wells_uuid', UUID(as_uuid=True), db.ForeignKey('wells.uuid'), primary_key=True, nullable=True),
 )
-
 class Sample(db.Model):
     __tablename__ = 'samples'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -321,7 +359,33 @@ class Sample(db.Model):
             dictionary['pileups'] = [pileup.uuid for pileup in self.pileups]
         return dictionary
 
+# Wells #
+class Plate_loc():
+    def __init__(self, height:int=8, length:int=12,locations:list=[]) -> None:
+        positions = []
+        for letter in list(string.ascii_uppercase[0:height]):
+            for number in range(length):
+                positions.append((letter, number+1))
+        self.height = height
+        self.length = length
+        if locations==[]:
+            self.locations = [x[0]+str(x[1]) for x in positions]
+        else:
+            self.locations = locations
+well_schema = {
+    "uuid": uuid,
+  "address": {"type": "string", "enum": Plate_loc(height=16,length=24).locations},
+  "volume": { "type": "number" },
+  "quantity": optional_num,
+  "media": generic_string,
+  "plate_uuid": uuid,
+    "samples": force_to_many
+}
+well_required = ['address','volume','media','plate_uuid','samples']
 class Well(db.Model): # Constrain Wells to being unique to each plate
+    validator = schema_generator(well_schema,well_required)
+    put_validator = schema_generator(well_schema,[])
+
     __tablename__ = 'wells'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
