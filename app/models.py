@@ -288,7 +288,7 @@ class Pipette(db.Model):
 # Plates #
 plate_schema = {
     "uuid": uuid,
-    "status": {'type': 'string', 'enum': ['Planned','Stocked','Trashed']}
+    "status": {'type': 'string', 'enum': ['Planned','Stocked','Trashed']},
   "plate_vendor_id": generic_string,
   "breadcrumb": generic_string,
   "plate_name": generic_string,

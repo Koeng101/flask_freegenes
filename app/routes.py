@@ -189,6 +189,14 @@ class CRUD():
             def get(self,uuid):
                 return crud_get(cls,uuid,full='full')
 
+        @self.ns.route('/validator')
+        class ValidatorRoute(Resource):
+            @self.ns.doc('{}_validator'.format(self.name))
+            def get(self):
+                if validate_json==True:
+                    return make_response(jsonify(cls.validator),200)
+                return make_response(jsonify({'message': 'No validator for object'}),404)
+
 
 #========#
 # Routes #
@@ -300,66 +308,7 @@ class PartLocations(Resource):
 
 ns_part_modifiers = Namespace('part_modification', description='Modify parts')
 
-#def modify_part(uuid, function,from_attribute,to_attribute,cls=Part,part_type='cds',status=None):
-#    obj = cls.query.filter_by(uuid=uuid).first()
-#    if part_type=='cds':
-#        if obj.part_type != 'cds' or obj.translation == '' or obj.translation == None:
-#            return {'message': 'Not CDS or no translation'}
-#    elif obj.status not in [None,'optimized','fixed','checked','twist_checked']:
-#        return {'message': 'Checkpoint passed, changing sequence failed'}
-#    result = function(getattr(obj, from_attribute))
-#    if type(result) == dict:
-#        return result
-#    if type(result) == str:
-#        setattr(obj,to_attribute,result)
-#        obj.status = status
-#        db.session.commit()
-#        return obj.toJSON()
-#
-#@ns_part_modifiers.route('/optimize/<uuid>')
-#class Optimize(Resource):
-#    @requires_auth(['moderator','admin'])
-#    def put(self,uuid):
-#        return jsonify(modify_part(uuid, codon.optimize_protein, 'translation', 'optimized_sequence', status='optimized'))
-#
-#@ns_part_modifiers.route('/fix/<uuid>')
-#class FixCds(Resource):
-#    @requires_auth(['moderator','admin'])
-#    def put(self,uuid):
-#        return jsonify(modify_part(uuid, moclo.fix_cds, 'optimized_sequence', 'optimized_sequence', status='fixed'))
-#
-#@ns_part_modifiers.route('/optimize_fix/<uuid>')
-#class OptimizeFix(Resource):
-#    @requires_auth(['moderator','admin'])
-#    def put(self,uuid):
-#        return jsonify(modify_part(uuid, moclo.optimize_fix, 'translation', 'optimized_sequence', status='fixed'))
-#
-#@ns_part_modifiers.route('/apply_sites/<uuid>')
-#class ApplySites(Resource):
-#    @requires_auth(['moderator','admin'])
-#    def put(self,uuid):
-#        obj = Part.query.filter_by(uuid=uuid).first()
-#        obj.synthesized_sequence = moclo.part_type_preparer(obj.part_type,obj.optimized_sequence)
-#        obj.status = 'sites_applied'
-#        db.session.commit()
-#        return jsonify(obj.toJSON())
-#
-#@ns_part_modifiers.route('/fg_check/<uuid>')
-#class FgCheck(Resource):
-#    @requires_auth(['moderator','admin'])
-#    def put(self,uuid):
-#        obj = Part.query.filter_by(uuid=uuid).first()
-#        try:
-#            result = moclo.input_checker(obj.name,obj.synthesized_sequence,re=False)
-#        except Exception as e:
-#            print(e)
-#            obj.status = 'syn_check_failed'
-#            return jsonify({'message': e})
-#        if result == 'fg_checked':
-#            obj.status = 'syn_checked'
-#            db.session.commit()
-#            return jsonify(obj.toJSON())
-#
+
 def next_gene_id():
     result = db.engine.execute("SELECT parts.gene_id FROM parts WHERE gene_id IS NOT NULL ORDER BY gene_id DESC LIMIT 1")
     for r in result:
@@ -477,28 +426,14 @@ CRUD(ns_pipette,Pipette,pipette_model,'pipette')
 ###
 
 ns_protocol = Namespace('protocols', description='Protocols')
-protocol_model = ns_protocol.model('protocol', {
-    "description": fields.String(),
-    "protocol": fields.Raw,
-    "status": fields.String(),
-    "protocol_type": fields.String(),
-    "robot_uuid": fields.String(),
-    })
-CRUD(ns_protocol,Protocol,protocol_model,'protocol')
+protocol_model = ns_protocol.schema_model('protocol', Protocol.validator)
+CRUD(ns_protocol,Protocol,protocol_model,'protocol',validate_json=True)
 
 ###
 
 ns_plate = Namespace('plates', description='Plates')
-plate_model = ns_plate.model('plate', {
-    "plate_vendor_id": fields.String(),
-    "breadcrumb": fields.String(),
-    "plate_name": fields.String(),
-    "plate_form": fields.String(),
-    "plate_type": fields.String(),
-    "notes": fields.String(),
-    "protocol_uuid": fields.String(),
-    })
-CRUD(ns_plate,Plate,plate_model,'plate')
+plate_model = ns_plate.schema_model('plate', Plate.validator)
+CRUD(ns_plate,Plate,plate_model,'plate',validate_json=True)
 
 @ns_plate.route('/recurse/<uuid>')
 class PlateSamples(Resource):
@@ -520,14 +455,8 @@ class PlateSamples(Resource):
 ###
 
 ns_sample = Namespace('samples', description='Samples')
-sample_model = ns_sample.model('sample', {
-    "part_uuid": fields.String(),
-    "derived_from": fields.String(),
-    "status": fields.String(),
-    "evidence": fields.String(),
-    "wells": fields.String()
-    })
-CRUD(ns_sample,Sample,sample_model,'sample',constraints={'delete': ['derived_from']})
+sample_model = ns_sample.schema_model('sample', Sample.validator)
+CRUD(ns_sample,Sample,sample_model,'sample',constraints={'delete': ['derived_from']},validate_json=True)
 
 @ns_sample.route('/validation/<uuid>')
 class SeqDownloadFile(Resource):
