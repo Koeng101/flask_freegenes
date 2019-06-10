@@ -456,7 +456,7 @@ class Operator(db.Model):
     validator = schema_generator(operator_schema,operator_required)
     put_validator = schema_generator(operator_schema,[])
 
-    __tablename__ = 'operator'
+    __tablename__ = 'operators'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
