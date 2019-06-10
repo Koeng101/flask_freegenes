@@ -402,27 +402,7 @@ organism_model = ns_organism.model("organism", {
 CRUD(ns_organism,Organism,organism_model,'organism')
 
 ###
-
-ns_robot = Namespace('robots', description='Robots')
-robot_model = ns_robot.model('robot', {
-    "name": fields.String(),
-    "description": fields.String(),
-    "tags": fields.List(fields.String),
-    "genotype": fields.String(),
-    })
-CRUD(ns_robot,Robot,robot_model,'robot')
-
 ###
-
-ns_pipette = Namespace('pipettes', description='Pipettes')
-pipette_model = ns_pipette.model('pipette', {
-    "pipette_type": fields.String(),
-    "mount_side": fields.String(),
-    "robot_uuid": fields.String(),
-    "notes": fields.String(),
-    })
-CRUD(ns_pipette,Pipette,pipette_model,'pipette')
-
 ###
 
 ns_protocol = Namespace('protocols', description='Protocols')
@@ -451,7 +431,6 @@ def plate_recurse(uuid):
     plate['wells'] = wells
     return plate
 
-
 @ns_plate.route('/recurse/<uuid>')
 class PlateSamples(Resource):
     def get(self,uuid):
@@ -462,20 +441,6 @@ class PlateSamples(Resource):
 ns_sample = Namespace('samples', description='Samples')
 sample_model = ns_sample.schema_model('sample', Sample.validator)
 CRUD(ns_sample,Sample,sample_model,'sample',constraints={'delete': ['derived_from']},validate_json=True)
-
-@ns_sample.route('/validation/<uuid>')
-class SeqDownloadFile(Resource):
-    def get(self,uuid):
-        obj = Sample.query.filter_by(uuid=uuid).first()
-        pileup = [pileup.uuid for pileup in obj.pileups]
-        if len(pileup) > 1:
-            return {'message': 'too many pileup'}
-        elif len(pileup) == 0:
-            return {'message': 'no pileup found'}
-        else:
-            target = Pileup.query.filter_by(uuid=pileup[0]).first()
-            return redirect('/files/download/{}'.format(target.file_uuid))
-
 
 ###
 
@@ -488,43 +453,19 @@ class WellToPlate(Resource):
     def get(self,uuid):
         plate_uuid = Well.query.filter_by(uuid=uuid).first().toJSON()['plate_uuid']
         return jsonify(plate_recurse(plate_uuid))
+
+###
+###
 ###
 
-ns_seqrun = Namespace('seqrun', description='Seqrun')
-seqrun_model = ns_seqrun.model('seqrun', {
-    "name": fields.String(),
-    "run_id": fields.String(),
-    "machine_id": fields.String(),
-    "notes": fields.String(),
-    "sequencing_type": fields.String(),
-    "machine": fields.String(),
-    "provider": fields.String(),
-    })
-CRUD(ns_seqrun,Seqrun,seqrun_model,'seqrun')
-    
+ns_operator = Namespace('operators', description='Operators')
+operator_model = ns_operator.schema_model('operator', Operator.validator)
+CRUD(ns_operator,Operator,operator_model,'operator',validate_json=True)
 
 ###
 
-ns_pileup = Namespace('pileup', description='Pileup')
-pileup_model = ns_pileup.model('pileup', {
-    "sample_uuid": fields.String(),
-    "status": fields.String(),
-    "full_sequence_search": fields.String(),
-    "target_sequence": fields.String(),
-    "fastqs": fields.List(fields.String()),
-    "file_uuid": fields.String()
-    })
-CRUD(ns_pileup,Pileup,pileup_model,'pileup')
+ns_plan = Namespace('plans',description='Plans')
+plan_model = ns_plan.schema_model('plan', Plan.validator)
+CRUD(ns_plan,Plan,plan_model,'plan',validate_json=True)
 
 ###
-
-ns_fastq = Namespace('fastq', description='Fastq')
-fastq_model = ns_fastq.model('fastq', {
-    "name": fields.String(),
-    "seqrun_uuid": fields.String(),
-    "file_uuid": fields.String(),
-    "index_for": fields.String(),
-    "index_rev": fields.String(),
-    })
-CRUD(ns_fastq,Fastq,fastq_model,'fastq')
-

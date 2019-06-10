@@ -28,8 +28,8 @@ import string
 uuid_regex = '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
 null = {'type': 'null'}
 
-uuid = {'type': 'string','pattern': uuid_regex}
-optional_uuid = {'oneOf': [uuid,null]}
+uuid_schema = {'type': 'string','pattern': uuid_regex}
+optional_uuid = {'oneOf': [uuid_schema,null]}
 
 generic_string = {'type': 'string'}
 optional_string ={'oneOf': [generic_string,null]}
@@ -42,8 +42,8 @@ optional_date = {'oneOf': [generic_date,null]}
 
 name = {'type': 'string','minLength': 3,'maxLength': 30}
 tags = {'type': 'array', 'items': optional_string}
-force_to_many = {'type': 'array', 'items': uuid}
-to_many = {'type': 'array', 'items': {'oneOf': [uuid,null]}}
+force_to_many = {'type': 'array', 'items': uuid_schema}
+to_many = {'type': 'array', 'items': {'oneOf': [uuid_schema,null]}}
 #many_to_many = {'anyOf': [{'type': 'array','items': uuid},{'type': 'array','items': null}]}
 
 def schema_generator(properties,required,additionalProperties=False):
@@ -257,37 +257,12 @@ class Part(db.Model):
             dictionary['samples'] = [sample.uuid for sample in self.samples]
         return dictionary
 
-# Do things
-class Robot(db.Model):
-    __tablename__ = 'robots'
-    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
-    name = db.Column(db.String)
-    notes = db.Column(db.String)
-    protocols = db.relationship('Protocol',backref='robot')
-    pipettes = db.relationship('Pipette',backref='robot')
-
-    def toJSON(self,full=None):
-        dictionary = {'uuid':self.uuid,'right_300':self.right_300,'left_10':self.left_10,'robot_name':self.robot_name,'notes':self.notes}
-        if full=='full':
-            dictionary['protocols'] = [protocol.uuid for protocol in self.protocols]
-        return dictionary
-
-class Pipette(db.Model):
-    __tablename__ = 'pipettes'
-    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
-    pipette_type = db.Column(db.String) # TODO enum here
-    mount_side = db.Column(db.String)
-    robot_uuid = db.Column(UUID, db.ForeignKey('robots.uuid'),
-            nullable=True)
-    notes = db.Column(db.String)
-
-
 
 # Are things
 
 # Plates #
 plate_schema = {
-    "uuid": uuid,
+    "uuid": uuid_schema,
     "status": {'type': 'string', 'enum': ['Planned','Stocked','Trashed']},
   "plate_vendor_id": generic_string,
   "breadcrumb": generic_string,
@@ -295,7 +270,7 @@ plate_schema = {
   "plate_form": {'type': 'string', 'enum': ['standard96,deep96,standard384,deep384']},
   "plate_type": {'type': 'string', 'enum': ['archive_glycerol_stock','glycerol_stock','culture','distro']},
   "notes": generic_string,
-  "protocol_uuid": uuid
+  "protocol_uuid": uuid_schema
 }
 plate_required = ['status','breadcrumb','plate_name','plate_form','plate_type']
 
@@ -328,10 +303,10 @@ class Plate(db.Model):
 # Samples #
 
 sample_schema = {
-    "uuid": uuid,
-    "part_uuid": uuid,
+    "uuid": uuid_schema,
+    "part_uuid": uuid_schema,
     "status": {'type': 'string', 'enum': ['Confirmed', 'Mutated']},
-    "derived_from": uuid,
+    "derived_from": uuid_schema,
     "evidence": {'type': 'string', 'enum': ['Twist_Confirmed','NGS','Sanger','Nanopore']},
     "wells": force_to_many,
 }
@@ -381,12 +356,12 @@ class Plate_loc():
         else:
             self.locations = locations
 well_schema = {
-    "uuid": uuid,
+    "uuid": uuid_schema,
   "address": {"type": "string", "enum": Plate_loc(height=16,length=24).locations},
   "volume": { "type": "number" },
   "quantity": optional_num,
   "media": generic_string,
-  "plate_uuid": uuid,
+  "plate_uuid": uuid_schema,
     "samples": force_to_many
 }
 well_required = ['address','volume','media','plate_uuid','samples']
@@ -404,7 +379,6 @@ class Well(db.Model): # Constrain Wells to being unique to each plate
 
     quantity = db.Column(db.Float, nullable=True) # fmol - if null, unknown
     media = db.Column(db.String(32)) # Liquid
-    well_type = db.Column(db.String(32)) # glycerol,grown,purified_dna,pcr,gdna,etc
     organism = db.Column(db.String) # IMPLEMENT ORGANISM CONTROL
 
     plate_uuid = db.Column(UUID, db.ForeignKey('plates.uuid'),
@@ -419,7 +393,7 @@ class Well(db.Model): # Constrain Wells to being unique to each plate
 # Protocol things
 
 protocolschema_schema = {
-    "uuid": uuid,
+    "uuid": uuid_schema,
     "name": generic_string,
     "description": generic_string,
     "schema": {'type': 'object'}
@@ -442,11 +416,11 @@ class ProtocolSchema(db.Model):
 
 
 protocol_schema = {
-    "uuid": uuid,
+    "uuid": uuid_schema,
     "description": generic_string,
     "protocol": {'type': 'object'},
     "status": {'type': 'string', 'enum':['Executed','Planned']},
-    "protocolschema": uuid,
+    "protocolschema": uuid_schema,
 }
 protocol_required = ['protocol','protocolschema']
 class Protocol(db.Model):
@@ -463,85 +437,77 @@ class Protocol(db.Model):
 
     plates = db.relationship('Plate',backref='protocol') # TODO ADD plates in toJSON
 
-    robot_uuid = db.Column(UUID, db.ForeignKey('robots.uuid'),
-            nullable=True)
-
     def toJSON(self,full=None):
         dictionary= {'uuid': self.uuid, 'description': self.description, 'protocol': self.protocol, 'status': self.status, 'protocol_type':self.protocol_type}
         if full=='full':
             dictionary['plates'] = [plate.uuid for plate in self.plates]
         return dictionary
 
+###
 
-# Verify things
-class Seqrun(db.Model):
-    __tablename__ = 'seqruns'
+operator_schema = {
+        "uuid": uuid_schema,
+        "name": generic_string,
+        "role": {"type": "string", "enum": ['PI','Admin','Technician']},
+        "description": generic_string
+        }
+operator_required = ['name','role']
+class Operator(db.Model):
+    validator = schema_generator(operator_schema,operator_required)
+    put_validator = schema_generator(operator_schema,[])
+
+    __tablename__ = 'operator'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
-    name = db.Column(db.String) # run name
-    run_id = db.Column(db.String) # Sequencing provider id
-    machine_id = db.Column(db.String)
-    notes = db.Column(db.String)
-    sequencing_type = db.Column(db.String) # illumina, nanopore, etc
-    machine = db.Column(db.String) # minion, iseq, etc
-    provider = db.Column(db.String) # in-house
-
-    job = db.Column(db.String) # the job id of the redis job
-
-    fastqs = db.relationship('Fastq',backref='seqrun')
+    name = db.Column(db.String())
+    role = db.Column(db.String())
+    description = db.Column(db.String())
 
     def toJSON(self,full=None):
-        dictionary= {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'name':self.name,'run_id':self.run_id,'machine_id':self.machine_id,'notes':self.notes,'sequencing_type':self.sequencing_type,'machine':self.machine,'provider':self.provider, 'job':self.job}
-        if full=='full':
-            dictionary['fastqs'] = [fastq.uuid for fastq in self.fastqs]
+        dictionary = {'uuid': self.uuid, 'name': self.name, 'role': self.role, 'description': self.description}
         return dictionary
 
-pileup_fastq = db.Table('pileup_fastq',
-    db.Column('pileup_uuid', UUID(as_uuid=True), db.ForeignKey('pileups.uuid'), primary_key=True),
-    db.Column('fastq_uuid', UUID(as_uuid=True), db.ForeignKey('fastqs.uuid'),primary_key=True,nullable=True),
-)
+plan_schema = {
+        "uuid": uuid_schema,
+        "name": generic_string,
+        "description": generic_string,
+        "requested_by" : uuid_schema,
+        "executed_by": uuid_schema,
+        "depends_on": uuid_schema,
+        "status": {"type": "string", "enum": ['Planned','Trashed','Executed']},
+        "plan_data": {"type": "object", "properties": {
+            "protocols": {'oneOf': [null,{"type": "array", "items": schema_generator(protocol_schema,protocol_required)}]},
+            "plates": {'oneOf': [null,{"type": "array", "items": schema_generator(plate_schema,plate_required)}]},
+            "samples": {'oneOf': [null,{"type": "array", "items": schema_generator(sample_schema,sample_required)}]},
+            "wells": {'oneOf': [null,{"type": "array", "items": schema_generator(well_schema,well_required)}]}
+            }, 
+            "additionalProperties": False},
+        }    
+plan_required = ['name','requested_by','status','plan_data']
+class Plan(db.Model):
+    validator = schema_generator(plan_schema,plan_required)
+    put_validator = schema_generator(plan_schema,[])
 
-class Pileup(db.Model):
-    __tablename__ = 'pileups'
+    __tablename__ = 'plans'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
-    status = db.Column(db.String) # mutation,confirmed,etc
-    full_search_sequence = db.Column(db.String)
-    target_sequence = db.Column(db.String) 
+    name = db.Column(db.String(), nullable=False)
+    description = db.Column(db.String())
+    status = db.Column(db.String())
 
-    sample_uuid = db.Column(UUID, db.ForeignKey('samples.uuid'),
-            nullable=False)
-    fastqs = db.relationship('Fastq', secondary=pileup_fastq, lazy='subquery',
-        backref=db.backref('pileups', lazy=True))
+    requested_by = db.Column(UUID, db.ForeignKey('operators.uuid'),nullable=False)
+    executed_by = db.Column(UUID, db.ForeignKey('operators.uuid'),nullable=True)
+    depends_on = db.Column(UUID, db.ForeignKey('plans.uuid'),nullable=True)
 
-    file_uuid = db.Column(UUID, db.ForeignKey('files.uuid'),nullable=True)
-    
+    plan_data = db.Column(db.JSON, nullable=False)
+
     def toJSON(self,full=None):
-        dictionary= {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'status':self.status,'full_search_sequence':self.full_search_sequence,'target_sequence':self.target_sequence,'file_uuid':self.file_uuid, 'sample_uuid': self.sample_uuid}
-        if full=='full':
-            dictionary['fastqs'] = [fastq.uuid for fastq in self.fastqs]
+        dictionary = {'uuid': self.uuid, 'name': self.name, 'description': self.description, 'status': self.status, 'requested_by': self.requested_by, 'executed_by': self.executed_by, 'depends_on': self.depends_on, 'protocol': self.plan_data}
         return dictionary
 
-class Fastq(db.Model):
-    __tablename__ = 'fastqs'
-    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
-    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
-    seqrun_uuid = db.Column(UUID, db.ForeignKey('seqruns.uuid'), nullable=False)
-    name = db.Column(db.String)
 
-    file_uuid = db.Column(UUID, db.ForeignKey('files.uuid'),nullable=True)
-
-    index_for = db.Column(db.String)
-    index_rev = db.Column(db.String)
-    
-    def toJSON(self,full=None):
-        dictionary= {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'seqrun_uuid':self.seqrun_uuid,'file_uuid':self.file_uuid,'index_for':self.index_for,'index_rev':self.index_rev}
-        if full=='full':
-            dictionary['pileups'] = [pileup.uuid for pileup in self.pileups]
-        return dictionary
 
