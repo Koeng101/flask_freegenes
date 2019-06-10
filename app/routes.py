@@ -21,7 +21,7 @@ import jwt
 from functools import wraps
 from flask import make_response, jsonify
 PUBLIC_KEY = os.environ['PUBLIC_KEY']
-def requires_auth(roles):
+def requires_auth(roles): # Remove ability to send token as parameter in request
     def requires_auth_decorator(f):
         @wraps(f)
         def decorated(*args, **kwargs):
@@ -56,7 +56,7 @@ class ResourceRoute(Resource):
 
 
 
-def request_to_class(dbclass,json_request):
+def request_to_class(dbclass,json_request): # Make classmethod
     tags = []
     for k,v in json_request.items():
         if k == 'tags' and v != []:
@@ -435,23 +435,28 @@ ns_plate = Namespace('plates', description='Plates')
 plate_model = ns_plate.schema_model('plate', Plate.validator)
 CRUD(ns_plate,Plate,plate_model,'plate',validate_json=True)
 
+def plate_recurse(uuid):
+    obj = Plate.query.filter_by(uuid=uuid).first()
+    wells = []
+    for well in obj.wells:
+        samples = []
+        for sample in well.samples:
+            to_add = sample.toJSON()
+            to_add['part'] = sample.part.toJSON()
+            samples.append(to_add)
+        to_add = well.toJSON()
+        to_add['samples'] = samples
+        wells.append(to_add)
+    plate = obj.toJSON()
+    plate['wells'] = wells
+    return plate
+
+
 @ns_plate.route('/recurse/<uuid>')
 class PlateSamples(Resource):
     def get(self,uuid):
-        obj = Plate.query.filter_by(uuid=uuid).first()
-        wells = []
-        for well in obj.wells:
-            samples = []
-            for sample in well.samples:
-                to_add = sample.toJSON()
-                to_add['part'] = sample.part.toJSON()
-                samples.append(to_add)
-            to_add = well.toJSON()
-            to_add['samples'] = samples
-            wells.append(to_add)
-        plate = obj.toJSON()
-        plate['wells'] = wells
-        return jsonify(plate)
+        return jsonify(plate_recurse(uuid))
+
 ###
 
 ns_sample = Namespace('samples', description='Samples')
@@ -478,6 +483,11 @@ ns_well = Namespace('wells', description='Wells')
 well_model = ns_well.schema_model('well', Well.validator)
 CRUD(ns_well,Well,well_model,'well',validate_json=True)
 
+@ns_well.route('/plate_recurse/<uuid>')
+class WellToPlate(Resource):
+    def get(self,uuid):
+        plate_uuid = Well.query.filter_by(uuid=uuid).first().toJSON()['plate_uuid']
+        return jsonify(plate_recurse(plate_uuid))
 ###
 
 ns_seqrun = Namespace('seqrun', description='Seqrun')
@@ -491,42 +501,7 @@ seqrun_model = ns_seqrun.model('seqrun', {
     "provider": fields.String(),
     })
 CRUD(ns_seqrun,Seqrun,seqrun_model,'seqrun')
-
-
-#@ns_seqrun.route('/seq_verify/<uuid>')
-#class SeqDownloadFile(Resource):
-#    @requires_auth(['moderator','admin'])
-#    def put(self,uuid):
-#        obj = Seqrun.query.filter_by(uuid=uuid).first()
-#        indexs = []
-#        fastqs = [fastq for fastq in obj.fastqs]
-#        for fastq in fastqs:
-#            for_rev = '{}_{}'.format(fastq.index_for,fastq.index_rev)
-#            indexs.append(for_rev)
-#        indexs = list(set(indexs))
-#        index_dict = {}
-#        for index in indexs:
-#            index_fastqs = []
-#            pileups = []
-#            for fastq in fastqs:
-#                for_rev = '{}_{}'.format(fastq.index_for,fastq.index_rev)
-#                if for_rev == index:
-#                    index_fastqs.append(fastq.toJSON())
-#                    for pileup in fastq.pileups:
-#                        pileups.append(pileup.toJSON())
-#            pileups = list(dict((v['uuid'],v) for v in pileups).values())
-#            index_dict[index] = {'fastqs': index_fastqs, 'pileups':pileups}
-#
-#        seqrun = obj.toJSON()
-#        seqrun['indexes'] = index_dict
-#
-#        job = q.enqueue_call(func=sequence, args=(seqrun,))
-#        obj.job = job.get_id
-#        db.session.commit()
-#        return jsonify(seqrun)
-#            
-            
-
+    
 
 ###
 
