@@ -564,7 +564,7 @@ class Distribution(db.Model):
     name = db.Column(db.String(), nullable=False)
     description = db.Column(db.String())
 
-    platesets = db.relationship('PlateSet', secondary=plates_platesets, lazy='subquery',backref=db.backref('distribution', lazy=True))
+    platesets = db.relationship('PlateSet', secondary=platesets_distributions, lazy='subquery',backref=db.backref('distribution', lazy=True))
 
 
 ###
