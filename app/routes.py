@@ -466,10 +466,43 @@ ns_operator = Namespace('operators', description='Operators')
 operator_model = ns_operator.schema_model('operator', Operator.validator)
 CRUD(ns_operator,Operator,operator_model,'operator',validate_json=True)
 
-###
-
 ns_plan = Namespace('plans',description='Plans')
 plan_model = ns_plan.schema_model('plan', Plan.validator)
 CRUD(ns_plan,Plan,plan_model,'plan',validate_json=True)
 
+ns_plateset = Namespace('plateset',description='PlateSets')
+plateset_model = ns_plateset.schema_model('plateset',PlateSet.validator)
+CRUD(ns_plateset,PlateSet,plateset_model,'plateset',validate_json=True)
+
+ns_distribution = Namespace('distribution',description='Distributions')
+distribution_model = ns_distribution.schema_model('distribution',Distribution.validator)
+CRUD(ns_distribution,Distribution,distribution_model,'distribution',validate_json=True)
+
+ns_order = Namespace('order',description='Orders')
+order_model = ns_order.schema_model('order',Order.validator)
+CRUD(ns_order,Order,order_model,'order',validate_json=True)
+
+ns_institution = Namespace('institution',description='Institutions')
+institution_model = ns_institution.schema_model('institution',Institution.validator)
+CRUD(ns_institution,Institution,institution_model,'institution',validate_json=True)
+
+ns_materialtransferagreement = Namespace('materialtransferagreement',description='MaterialTransferAgreements')
+materialtransferagreement_model = ns_materialtransferagreement.schema_model('materialtransferagreement',MaterialTransferAgreement.validator)
+CRUD(ns_materialtransferagreement,MaterialTransferAgreement,materialtransferagreement_model,'materialtransferagreement',validate_json=True)
+
 ###
+
+ns_shipment = Namespace('shipment',description='Shipments')
+shipment_model = ns_shipment.schema_model('shipment',Shipment.validator)
+CRUD(ns_shipment,Shipment,shipment_model,'shipment',validate_json=True,custom_post=True)
+
+ns_address = Namespace('address',description='Addresss')
+address_model = ns_address.schema_model('address',Address.validator)
+CRUD(ns_address,Address,address_model,'address',validate_json=True,custom_post=True)
+
+ns_parcel = Namespace('parcel',description='Parcels')
+parcel_model = ns_parcel.schema_model('parcel',Parcel.validator)
+CRUD(ns_parcel,Parcel,parcel_model,'parcel',validate_json=True,custom_post=True)
+
+
+

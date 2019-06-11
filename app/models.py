@@ -524,10 +524,16 @@ platesets_distributions = db.Table('platesets_distributions',
     db.Column('distributions_uuid', UUID(as_uuid=True), db.ForeignKey('distributions.uuid'), primary_key=True, nullable=True),
 )
 
-
+plateset_schema = {
+        "uuid": uuid_schema,
+        "name": generic_string,
+        "description": generic_string,
+        "plates": force_to_many
+        }
+plateset_required = ['name','plates']
 class PlateSet(db.Model):
-    validator = schema_generator(plan_schema,plan_required)
-    put_validator = schema_generator(plan_schema,[])
+    validator = schema_generator(plateset_schema,plateset_required)
+    put_validator = schema_generator(plateset_schema,[])
 
     __tablename__ = 'platesets'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -539,10 +545,16 @@ class PlateSet(db.Model):
 
     plates = db.relationship('Plate', secondary=plates_platesets, lazy='subquery',backref=db.backref('platesets', lazy=True))
 
-
+distribution_schema = {
+        "uuid": uuid_schema,
+        "name": generic_string,
+        "description": generic_string,
+        "platesets": force_to_many
+        }
+distribution_required = ['name','platesets']
 class Distribution(db.Model):
-    validator = schema_generator(plan_schema,plan_required)
-    put_validator = schema_generator(plan_schema,[])
+    validator = schema_generator(distribution_schema,distribution_required)
+    put_validator = schema_generator(distribution_schema,[])
 
     __tablename__ = 'distributions'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -555,8 +567,6 @@ class Distribution(db.Model):
     platesets = db.relationship('PlateSet', secondary=plates_platesets, lazy='subquery',backref=db.backref('distribution', lazy=True))
 
 
-
-
 ###
 
 distributions_orders = db.Table('distributions_orders',
@@ -564,10 +574,18 @@ distributions_orders = db.Table('distributions_orders',
     db.Column('orders_uuid', UUID(as_uuid=True), db.ForeignKey('orders.uuid'), primary_key=True, nullable=True),
 )
 
-
+order_schema = {
+        "uuid": uuid_schema,
+        "name": generic_string,
+        "notes": generic_string,
+        "address": uuid_schema,
+        "distributions": force_to_many,
+        "materialtransferagreement": uuid_schema
+        }
+order_required = ['name','address','distributions']
 class Order(db.Model):
-    validator = schema_generator(plan_schema,plan_required)
-    put_validator = schema_generator(plan_schema,[])
+    validator = schema_generator(order_schema,order_required)
+    put_validator = schema_generator(order_schema,[])
 
     __tablename__ = 'orders'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -579,7 +597,7 @@ class Order(db.Model):
 
     address = db.Column(UUID, db.ForeignKey('addresses.uuid'),nullable=False)
     distributions = db.relationship('Distribution', secondary=distributions_orders, lazy='subquery',backref=db.backref('orders',lazy=True))
-    materialtransferagreeement = db.Column(UUID, db.ForeignKey('materialtransferagreements.uuid'),nullable=True)
+    materialtransferagreement = db.Column(UUID, db.ForeignKey('materialtransferagreements.uuid'),nullable=True)
 
 
 plates_shipments = db.Table('plates_shipments',
@@ -587,9 +605,20 @@ plates_shipments = db.Table('plates_shipments',
     db.Column('shipments_uuid', UUID(as_uuid=True), db.ForeignKey('shipments.uuid'), primary_key=True, nullable=True),
 )
 
+shipment_schema = {
+        "uuid": uuid_schema,
+        "name": generic_string,
+        "notes": generic_string,
+        "parcel_uuid": uuid_schema,
+        "order_uuid": uuid_schema,
+        "address_from": uuid_schema,
+        "shipment_type": {"type": "string", "enum": ['dry_ice','small_box']},
+        "plates": force_to_many
+        }
+shipment_required = ['name','parcel_uuid','order_uuid','address_from','shipment_type','plates']
 class Shipment(db.Model):
-    validator = schema_generator(plan_schema,plan_required)
-    put_validator = schema_generator(plan_schema,[])
+    validator = schema_generator(shipment_schema,shipment_required)
+    put_validator = schema_generator(shipment_schema,[])
 
     __tablename__ = 'shipments'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -597,9 +626,11 @@ class Shipment(db.Model):
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
     name = db.Column(db.String(), nullable=False)
-    description = db.Column(db.String())
+    notes = db.Column(db.String())
 
-    parcel = db.Column(UUID, db.ForeignKey('parcels.uuid'),nullable=False)
+    parcel_uuid = db.Column(UUID, db.ForeignKey('parcels.uuid'),nullable=False)
+    order_uuid = db.Column(UUID,db.ForeignKey('orders.uuid'),nullable=False)
+    address_from = db.Column(UUID, db.ForeignKey('address.uuid'),nullable=False)
 
     shipment_type = db.Column(db.String())
     shipment_id = db.Column(db.String()) # Shippo shipment object id
@@ -609,7 +640,32 @@ class Shipment(db.Model):
 
 ###
 
+country_schema = {
+    "description": "The [ISO 3166-1 alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2) country code.",
+    "maxLength": 2,
+    "minLength": 2,
+    "pattern": "^([A-Z]{2})$"
+} 
+address_schema = {
+        "uuid": uuid_schema,
+        "name": generic_string,
+        "street1": generic_string,
+        "street_no": generic_string,
+        "street2": generic_string,
+        "street3": generic_string,
+        "city": generic_string,
+        "zip_code": generic_string,
+        "state": generic_string,
+        "country": country_schema,
+        "phone": generic_string,
+        "email": {"type": "email"},
+        "user_uuid": uuid_schema,
+        "institution": uuid_schema}
+address_required = ['name','street1','city','zip','country']
 class Address(db.Model): # Integrate with shippo
+    validator = schema_generator(address_schema,address_required)
+    put_validator = schema_generator(address_schema,[])
+
     __tablename__ = 'addresses'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
@@ -623,7 +679,8 @@ class Address(db.Model): # Integrate with shippo
     street3 = db.Column(db.String())
     city = db.Column(db.String())
     zip_code = db.Column(db.String())
-    state = db.Column(db.String()) # ISO 2 country code
+    state = db.Column(db.String())
+    country = db.Column(db.String())# ISO 2 country code
     phone = db.Column(db.String())
     email = db.Column(db.String()) # email
 
@@ -631,24 +688,44 @@ class Address(db.Model): # Integrate with shippo
     institution = db.Column(UUID, db.ForeignKey('institutions.uuid'),nullable=False)
     object_id = db.Column(db.String()) # shippo object id
 
+parcel_schema = {
+        "uuid": uuid_schema,
+        "length": generic_num,
+        "width": generic_num,
+        "height": generic_num,
+        "distance_unit": {"type": "string", "enum": ["cm","in","ft","mm","m","yd"]},
+        "weight": generic_num,
+        "mass_unit": {"type": "string", "enum": ["g","oz","lb","kg"]},
+        }
+parcel_required = ["length","width","height","distance_unit","weight","mass_unit"]
 class Parcel(db.Model):
+    validator = schema_generator(parcel_schema,parcel_required)
+    put_validator = schema_generator(parcel_schema,[])
+
     __tablename__ = 'parcels'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
-    length = db.Column(db.Integer())
-    width = db.Column(db.Integer())
-    height = db.Column(db.Integer())
+    length = db.Column(db.Float())
+    width = db.Column(db.Float())
+    height = db.Column(db.Float())
     distance_unit = db.Column(db.String())
-    weight = db.Column(db.Integer())
+    weight = db.Column(db.Float())
     mass_unit = db.Column(db.String())
 
     object_id = db.Column(db.String()) # Shippo object id
 
-
-
+institution_schema = {
+        "uuid": uuid_schema,
+        "name": generic_string,
+        "signed_master": {"type": "boolean"}
+        }
+institution_required = ['name','signed_master']
 class Institution(db.Model):
+    validator = schema_generator(institution_schema,institution_required)
+    put_validator = schema_generator(institution_schema,[])
+
     __tablename__ = 'institutions'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
@@ -657,8 +734,17 @@ class Institution(db.Model):
     name = db.Column(db.String())
     signed_master = db.Column(db.Boolean())
 
+mta_schema = {
+        "uuid": uuid_schema,
+        "institution": uuid_schema,
+        "mta_type": {"type": "string", "enum": ["OpenMTA", "UBMTA"]},
+        "file": uuid_schema
+        }
+mta_required = ["institution","mta_type","file"]
+class MaterialTransferAgreement(db.Model): 
+    validator = schema_generator(shipment_schema,shipment_required)
+    put_validator = schema_generator(shipment_schema,[])
 
-class MaterialTransferAgreement(db.Model): # get dat file attachment homie
     __tablename__ = 'materialtransferagreements'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
@@ -666,3 +752,5 @@ class MaterialTransferAgreement(db.Model): # get dat file attachment homie
 
     institution = db.Column(UUID, db.ForeignKey('institutions.uuid'),nullable=False)
     mta_type = db.Column(db.String(), nullable=False)
+    file = db.Column(UUID, db.ForeignKey('files.uuid'),nullable=True)
+
