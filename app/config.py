@@ -14,4 +14,5 @@ SPACES = boto3.session.Session().client('s3',
 BUCKET = os.environ['BUCKET']
 API_TITLE = os.environ['API_TITLE']
 API_DESCRIPTION = os.environ['API_DESCRIPTION']
+SHIPPO_KEY = os.environ['SHIPPO_KEY']
 

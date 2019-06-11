@@ -545,6 +545,12 @@ class PlateSet(db.Model):
 
     plates = db.relationship('Plate', secondary=plates_platesets, lazy='subquery',backref=db.backref('platesets', lazy=True))
 
+    def toJSON(self,full=None):
+        dictionary = {"uuid": self.uuid, "name": self.name, "description": self.description}
+        if full != None:
+            dictionary['plates'] = [plate.uuid for plate in self.plates]
+        return dictionary
+
 distribution_schema = {
         "uuid": uuid_schema,
         "name": generic_string,
@@ -565,6 +571,12 @@ class Distribution(db.Model):
     description = db.Column(db.String())
 
     platesets = db.relationship('PlateSet', secondary=platesets_distributions, lazy='subquery',backref=db.backref('distribution', lazy=True))
+
+    def toJSON(self,full=None):
+        dictionary = {"uuid": self.uuid, "name": self.name, "description": self.description}
+        if full != None:
+            dictionary['platesets'] = [plateset.uuid for plateset in self.platesets]
+        return dictionary
 
 
 ###
@@ -599,6 +611,11 @@ class Order(db.Model):
     distributions = db.relationship('Distribution', secondary=distributions_orders, lazy='subquery',backref=db.backref('orders',lazy=True))
     materialtransferagreement = db.Column(UUID, db.ForeignKey('materialtransferagreements.uuid'),nullable=True)
 
+    def toJSON(self,full=None):
+        dictionary = {"uuid": self.uuid, "name": self.name, "notes": self.notes, "address": self.address, "materialtransferagreement": self.materialtransferagreement}
+        if full != None:
+            dictionary['distributions'] = [distribution.uuid for distribution in self.distributions]
+        return dictionary
 
 plates_shipments = db.Table('plates_shipments',
     db.Column('plates_uuid', UUID(as_uuid=True), db.ForeignKey('plates.uuid'), primary_key=True),
@@ -612,10 +629,12 @@ shipment_schema = {
         "parcel_uuid": uuid_schema,
         "order_uuid": uuid_schema,
         "address_from": uuid_schema,
+        "address_to": uuid_schema,
         "shipment_type": {"type": "string", "enum": ['dry_ice','small_box']},
-        "plates": force_to_many
+        "plates": force_to_many,
+        "status": {'type': "string", "enum": ["Planned","Shipped","Delivered","Canceled"]}
         }
-shipment_required = ['name','parcel_uuid','order_uuid','address_from','shipment_type','plates']
+shipment_required = ['name','parcel_uuid','order_uuid','address_from','address_to','shipment_type','plates']
 class Shipment(db.Model):
     validator = schema_generator(shipment_schema,shipment_required)
     put_validator = schema_generator(shipment_schema,[])
@@ -631,24 +650,34 @@ class Shipment(db.Model):
     parcel_uuid = db.Column(UUID, db.ForeignKey('parcels.uuid'),nullable=False)
     order_uuid = db.Column(UUID,db.ForeignKey('orders.uuid'),nullable=False)
     address_from = db.Column(UUID, db.ForeignKey('addresses.uuid'),nullable=False)
+    address_to = db.Column(UUID,db.ForeignKey('addresses.uuid'),nullable=False)
 
     shipment_type = db.Column(db.String())
-    shipment_id = db.Column(db.String()) # Shippo shipment object id
+    object_id = db.Column(db.String()) # Shippo shipment object id
     transaction_id = db.Column(db.String()) # Shippo transaction id
+
+    status = db.Column(db.String()) # Status in house
 
     plates = db.relationship('Plate', secondary=plates_shipments, lazy='subquery',backref=db.backref('shipments',lazy=True))
 
+    def toJSON(self,full=None):
+        dictionary= {"uuid":self.uuid, "name": self.name, "notes": self.notes, "status":self.status, "parcel_uuid":self.parcel_uuid, "order_uuid":self.order_uuid, "address_from":self.address_from, "address_to":self.address_to, "shipment_type":self.shipment_type,"object_id":self.object_id,"transaction_id":self.transaction_id}
+        if full != None:
+            dictionary['plates'] = [obj.uuid for obj in self.plates]
+        return dictionary
 ###
 
 country_schema = {
     "description": "The [ISO 3166-1 alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2) country code.",
     "maxLength": 2,
     "minLength": 2,
-    "pattern": "^([A-Z]{2})$"
+    "pattern": "^([A-Z]{2})$",
+    "type": "string"
 } 
 address_schema = {
         "uuid": uuid_schema,
         "name": generic_string,
+        "company": generic_string,
         "street1": generic_string,
         "street_no": generic_string,
         "street2": generic_string,
@@ -658,10 +687,10 @@ address_schema = {
         "state": generic_string,
         "country": country_schema,
         "phone": generic_string,
-        "email": {"type": "email"},
+        "email": generic_string,
         "user_uuid": uuid_schema,
         "institution": uuid_schema}
-address_required = ['name','street1','city','zip','country']
+address_required = ['name','street1','city','zip_code','country']
 class Address(db.Model): # Integrate with shippo
     validator = schema_generator(address_schema,address_required)
     put_validator = schema_generator(address_schema,[])
@@ -677,8 +706,8 @@ class Address(db.Model): # Integrate with shippo
     street_no = db.Column(db.String())
     street2 = db.Column(db.String())
     street3 = db.Column(db.String())
-    city = db.Column(db.String())
-    zip_code = db.Column(db.String())
+    city = db.Column(db.String(),nullable=False)
+    zip_code = db.Column(db.String(),nullable=False)
     state = db.Column(db.String())
     country = db.Column(db.String())# ISO 2 country code
     phone = db.Column(db.String())
@@ -686,7 +715,11 @@ class Address(db.Model): # Integrate with shippo
 
     user_uuid = db.Column(UUID(as_uuid=True), nullable=False)
     institution = db.Column(UUID, db.ForeignKey('institutions.uuid'),nullable=False)
-    object_id = db.Column(db.String()) # shippo object id
+    object_id = db.Column(db.String(), nullable=False) # shippo object id
+
+    def toJSON(self,full=None):
+        dictionary = {"uuid": self.uuid, "name": self.name, "company": self.company, "street1": self.street1, "street_no": self.street2, "street2": self.street2, "street3": self.street3, "city": self.city, "zip_code": self.zip_code, "state": self.state, "country": self.country, "phone": self.phone, "email": self.email, "user_uuid": self.user_uuid, "institution": self.institution, "object_id": self.object_id}
+        return dictionary
 
 parcel_schema = {
         "uuid": uuid_schema,
@@ -714,7 +747,11 @@ class Parcel(db.Model):
     weight = db.Column(db.Float())
     mass_unit = db.Column(db.String())
 
-    object_id = db.Column(db.String()) # Shippo object id
+    object_id = db.Column(db.String(),nullable=False) # Shippo object id
+
+    def toJSON(self,full=None):
+        dictionary = {"uuid": self.uuid, "length": self.length, "width": self.width, "height": self.height, "distance_unit": self.distance_unit, "weight": self.weight, "mass_unit": self.mass_unit, "object_id": self.object_id}
+        return dictionary
 
 institution_schema = {
         "uuid": uuid_schema,
@@ -733,6 +770,10 @@ class Institution(db.Model):
 
     name = db.Column(db.String())
     signed_master = db.Column(db.Boolean())
+
+    def toJSON(self,full=None):
+        dictionary = {"uuid": self.uuid, "name": self.name, "signed_master": self.signed_master}
+        return dictionary
 
 mta_schema = {
         "uuid": uuid_schema,

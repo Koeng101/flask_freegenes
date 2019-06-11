@@ -1,6 +1,8 @@
 import json
 from jsonschema import validate
 
+import shippo
+
 from .models import *
 from flask_restplus import Api, Resource, fields, Namespace 
 from flask import Flask, abort, request, jsonify, g, url_for, redirect
@@ -8,7 +10,8 @@ from flask import Flask, abort, request, jsonify, g, url_for, redirect
 from .config import PREFIX
 from .config import LOGIN_KEY
 from .config import SPACES
-from .config import BUCKET        
+from .config import BUCKET
+from .config import SHIPPO_KEY
 #from dna_designer import moclo, codon
 
 #from .sequence import sequence
@@ -90,10 +93,10 @@ def request_to_class(dbclass,json_request): # Make classmethod
             [dbclass.samples.append(Well.query.filter_by(uuid=uuid).first()) for uuid in v]
         elif k == 'platesets' and v != []:
             dbclass.platesets = []
-            [dbclass.samples.append(PlateSet.query.filter_by(uuid=uuid).first()) for uuid in v]
+            [dbclass.platesets.append(PlateSet.query.filter_by(uuid=uuid).first()) for uuid in v]
         elif k == 'distributions' and v != []:
             dbclass.distributions = []
-            [dbclass.samples.append(Distribution.query.filter_by(uuid=uuid).first()) for uuid in v]
+            [dbclass.distributions.append(Distribution.query.filter_by(uuid=uuid).first()) for uuid in v]
         else:
             setattr(dbclass,k,v)
     return dbclass
@@ -139,13 +142,13 @@ class CRUD():
         self.name = name
         self.constraints = constraints
 
-        @self.ns.route('/')
-        class ListRoute(Resource):
-            @self.ns.doc('{}_list'.format(self.name))
-            def get(self):
-                return crud_get_list(cls)
+        if custom_post == False:
+            @self.ns.route('/')
+            class ListRoute(Resource):
+                @self.ns.doc('{}_list'.format(self.name))
+                def get(self):
+                    return crud_get_list(cls)
             
-            if custom_post == False:
                 @self.ns.doc('{}_create'.format(self.name),security=security)
                 @self.ns.expect(model)
                 @requires_auth(['moderator','admin'])
@@ -161,8 +164,8 @@ class CRUD():
                         else:
                             return make_response(jsonify({'message': 'UUID taken'}),501)
                     return crud_post(cls,request.get_json(),db)
-            else:
-                print('Custom post for {}'.format(name))
+        else:
+            print('Custom post and list for {}'.format(name))
 
         @self.ns.route('/<uuid>')
         class NormalRoute(Resource):
@@ -491,18 +494,127 @@ materialtransferagreement_model = ns_materialtransferagreement.schema_model('mat
 CRUD(ns_materialtransferagreement,MaterialTransferAgreement,materialtransferagreement_model,'materialtransferagreement',validate_json=True)
 
 ###
+class ShippoCRUD():
+    def __init__(self, namespace, cls, model, name, create_func, security='token',validate_json=True):
+        self.ns = namespace
+        self.cls = cls
+        self.model = model
+        self.name = name
 
-ns_shipment = Namespace('shipment',description='Shipments')
-shipment_model = ns_shipment.schema_model('shipment',Shipment.validator)
-CRUD(ns_shipment,Shipment,shipment_model,'shipment',validate_json=True,custom_post=True)
+        @self.ns.route('/')
+        class ListRoute(Resource):
+            @self.ns.doc('{}_list'.format(self.name),security=security)
+            @requires_auth(['moderator','admin'])
+            def get(self):
+                return crud_get_list(cls)
+
+            @self.ns.doc('{}_create'.format(self.name),security=security)
+            @self.ns.expect(model)
+            @requires_auth(['moderator','admin'])
+            def post(self):
+                if validate_json == True:
+                    try:
+                        validate(instance=request.get_json(),schema=cls.validator)
+                    except Exception as e:
+                        return make_response(jsonify({'message': 'Schema validation failed: {}'.format(e)}),400)
+                if 'uuid' in request.get_json():
+                    if cls.query.filter_by(uuid=request.get_json()['uuid']).first() == None:
+                        return crud_post(cls,request.get_json(),db)
+                    else:
+                        return make_response(jsonify({'message': 'UUID taken'}),501)
+
+                inc_req = request.get_json()
+                inc_req['api_key'] = SHIPPO_KEY
+
+                if name == 'address':
+                    if 'zip_code' in inc_req: # handle address zips correctly
+                        inc_req['zip'] = inc_req.pop('zip_code')
+                    inc_req['validate'] = True
+
+                if name == 'shipment':
+                    try:
+                        address_from = Address.query.filter_by(uuid=inc_req['address_from']).first().toJSON()
+                        address_to = Address.query.filter_by(uuid=inc_req['address_to']).first().toJSON()
+                        parcel = Parcel.query.filter_by(uuid=inc_req['parcel_uuid']).first().toJSON()
+                    except Exception as e:
+                        print(e)
+                        return make_response(jsonify({'message': 'UUID for address_from, address_to, or parcel was not found'}),501)
+                    obj = create_func(address_from=address_from['object_id'], address_to=address_to['object_id'], parcels=parcel['object_id'],api_key=SHIPPO_KEY)
+
+                else:
+                    obj = create_func(**inc_req)
+                inc_req['object_id'] = obj['object_id']
+
+                if name == 'address':
+                    inc_req['zip_code'] = inc_req.pop('zip')
+                    if obj['validation_results']['is_valid'] != True:
+                        return make_response(jsonify({'message': 'Address validation failed'}),501)
+                if name == 'parcel':
+                    print(obj)
+                    if obj['object_state'] != 'VALID':
+                        return make_response(jsonify({'message': 'Parcel validation failed'}),501)
+
+                return crud_post(cls,inc_req,db)
 
 ns_address = Namespace('address',description='Addresss')
 address_model = ns_address.schema_model('address',Address.validator)
 CRUD(ns_address,Address,address_model,'address',validate_json=True,custom_post=True)
+ShippoCRUD(ns_address,Address,address_model,'address',shippo.Address.create)
 
 ns_parcel = Namespace('parcel',description='Parcels')
 parcel_model = ns_parcel.schema_model('parcel',Parcel.validator)
 CRUD(ns_parcel,Parcel,parcel_model,'parcel',validate_json=True,custom_post=True)
+ShippoCRUD(ns_parcel,Parcel,parcel_model,'parcel',shippo.Parcel.create)
+
+
+ns_shipment = Namespace('shipment',description='Shipments')
+shipment_model = ns_shipment.schema_model('shipment',Shipment.validator)
+CRUD(ns_shipment,Shipment,shipment_model,'shipment',validate_json=True,custom_post=True)
+ShippoCRUD(ns_shipment,Shipment,shipment_model,'shipment',shippo.Shipment.create)
+
+@ns_shipment.route('/rates/<uuid>')
+class ShipmentRates(Resource):
+    @ns_shipment.doc('get_rates',security='token')
+    @requires_auth(['moderator','admin'])
+    def get(self,uuid):
+        obj = Shipment.query.filter_by(uuid=uuid).first().toJSON()
+        rates = shippo.Shipment.retrieve(obj['object_id'],api_key=SHIPPO_KEY)['rates']
+        return jsonify(rates)
+
+
+transactioncreate_model = ns_shipment.model("transactioncreate", {
+    "rate_id": fields.String(),
+    })
+
+@ns_shipment.route('/create_label/<uuid>')
+class TransactionCreate(Resource):
+    @ns_shipment.doc('create_label',security='token')
+    @requires_auth(['moderator','admin'])
+    @ns_shipment.expect(transactioncreate_model)
+    def post(self,uuid):
+        obj = Shipment.query.filter_by(uuid=uuid).first()
+        if obj == None:
+            return jsonify([])
+        trans_obj = shippo.Transaction.create(rate=request.get_json()['rate_id'],label_file_type="PDF",api_key=SHIPPO_KEY)
+        if trans_obj['object_state'] != 'VALID':
+            return make_response(jsonify({'message': 'Object state of transaction is not valid'}),501)
+
+        obj.transaction_id = trans_obj['object_id']
+        db.session.commit()
+        return jsonify(obj.toJSON())
+
+@ns_shipment.route('/retrieve_transaction/<uuid>')
+class TransactionView(Resource):
+    @ns_shipment.doc('retrieve_transaction',security='token')
+    @requires_auth(['moderator','admin'])
+    def get(self,uuid):
+        obj = Shipment.query.filter_by(uuid=uuid).first()
+        if obj == None:
+            return jsonify([])
+        trans_obj = shippo.Transaction.retrieve(obj.transaction_id, api_key=SHIPPO_KEY)
+        return jsonify({"label_url": trans_obj['label_url'], "tracking_number": trans_obj['tracking_number'], "tracking_url_provider": trans_obj["tracking_url_provider"]})
+
+
 
 
 
