@@ -552,6 +552,8 @@ class Distribution(db.Model):
     name = db.Column(db.String(), nullable=False)
     description = db.Column(db.String())
 
+    platesets = db.relationship('PlateSet', secondary=plates_platesets, lazy='subquery',backref=db.backref('distribution', lazy=True))
+
 
 
 
@@ -576,10 +578,14 @@ class Order(db.Model):
     notes = db.Column(db.String())
 
     address = db.Column(UUID, db.ForeignKey('addresses.uuid'),nullable=False)
-    distributions = db.relationship('Order', secondary=distributions_orders, lazy='subquery',backref=db.backref('orders',lazy=True))
+    distributions = db.relationship('Distribution', secondary=distributions_orders, lazy='subquery',backref=db.backref('orders',lazy=True))
     materialtransferagreeement = db.Column(UUID, db.ForeignKey('materialtransferagreements.uuid'),nullable=True)
 
 
+plates_shipments = db.Table('plates_shipments',
+    db.Column('plates_uuid', UUID(as_uuid=True), db.ForeignKey('plates.uuid'), primary_key=True),
+    db.Column('shipments_uuid', UUID(as_uuid=True), db.ForeignKey('shipments.uuid'), primary_key=True, nullable=True),
+)
 
 class Shipment(db.Model):
     validator = schema_generator(plan_schema,plan_required)
@@ -598,6 +604,8 @@ class Shipment(db.Model):
     shipment_type = db.Column(db.String())
     shipment_id = db.Column(db.String()) # Shippo shipment object id
     transaction_id = db.Column(db.String()) # Shippo transaction id
+
+    plates = db.relationship('Plate', secondary=plates_shipments, lazy='subquery',backref=db.backref('shipments',lazy=True))
 
 ###
 

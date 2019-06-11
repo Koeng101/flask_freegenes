@@ -88,11 +88,12 @@ def request_to_class(dbclass,json_request): # Make classmethod
         elif k == 'wells' and v != []:
             dbclass.wells = []
             [dbclass.samples.append(Well.query.filter_by(uuid=uuid).first()) for uuid in v]
-        elif k == 'derived_from' and v == "":
-            pass
-        elif k == 'fastqs' and v != []:
-            dbclass.fastqs = []
-            [dbclass.fastqs.append(Fastq.query.filter_by(uuid=uuid).first()) for uuid in v]
+        elif k == 'platesets' and v != []:
+            dbclass.platesets = []
+            [dbclass.samples.append(PlateSet.query.filter_by(uuid=uuid).first()) for uuid in v]
+        elif k == 'distributions' and v != []:
+            dbclass.distributions = []
+            [dbclass.samples.append(Distribution.query.filter_by(uuid=uuid).first()) for uuid in v]
         else:
             setattr(dbclass,k,v)
     return dbclass
@@ -131,7 +132,7 @@ def crud_put(cls,uuid,post,database):
     return jsonify(obj.toJSON())
 
 class CRUD():
-    def __init__(self, namespace, cls, model, name, constraints={}, security='token',validate_json=False):
+    def __init__(self, namespace, cls, model, name, constraints={}, security='token',validate_json=False, custom_post=False):
         self.ns = namespace
         self.cls = cls
         self.model = model
@@ -143,22 +144,25 @@ class CRUD():
             @self.ns.doc('{}_list'.format(self.name))
             def get(self):
                 return crud_get_list(cls)
-
-            @self.ns.doc('{}_create'.format(self.name),security=security)
-            @self.ns.expect(model)
-            @requires_auth(['moderator','admin'])
-            def post(self):
-                if validate_json == True:
-                    try:
-                        validate(instance=request.get_json(),schema=cls.validator)
-                    except Exception as e:
-                        return make_response(jsonify({'message': 'Schema validation failed: {}'.format(e)}),400)
-                if 'uuid' in request.get_json():
-                    if cls.query.filter_by(uuid=request.get_json()['uuid']).first() == None:
-                        return crud_post(cls,request.get_json(),db)
-                    else:
-                        return make_response(jsonify({'message': 'UUID taken'}),501)
-                return crud_post(cls,request.get_json(),db)
+            
+            if custom_post == False:
+                @self.ns.doc('{}_create'.format(self.name),security=security)
+                @self.ns.expect(model)
+                @requires_auth(['moderator','admin'])
+                def post(self):
+                    if validate_json == True:
+                        try:
+                            validate(instance=request.get_json(),schema=cls.validator)
+                        except Exception as e:
+                            return make_response(jsonify({'message': 'Schema validation failed: {}'.format(e)}),400)
+                    if 'uuid' in request.get_json():
+                        if cls.query.filter_by(uuid=request.get_json()['uuid']).first() == None:
+                            return crud_post(cls,request.get_json(),db)
+                        else:
+                            return make_response(jsonify({'message': 'UUID taken'}),501)
+                    return crud_post(cls,request.get_json(),db)
+            else:
+                print('Custom post for {}'.format(name))
 
         @self.ns.route('/<uuid>')
         class NormalRoute(Resource):
