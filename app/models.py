@@ -510,3 +510,151 @@ class Plan(db.Model):
 
 
 
+#######################
+### Shipping is fun ###
+#######################
+
+plates_platesets = db.Table('plates_platesets',
+    db.Column('plates_uuid', UUID(as_uuid=True), db.ForeignKey('plates.uuid'), primary_key=True),
+    db.Column('platesets_uuid', UUID(as_uuid=True), db.ForeignKey('platesets.uuid'), primary_key=True, nullable=True),
+)
+
+platesets_distributions = db.Table('platesets_distributions',
+    db.Column('platesets_uuid', UUID(as_uuid=True), db.ForeignKey('platesets.uuid'), primary_key=True),
+    db.Column('distributions_uuid', UUID(as_uuid=True), db.ForeignKey('distributions.uuid'), primary_key=True, nullable=True),
+)
+
+
+class PlateSet(db.Model):
+    validator = schema_generator(plan_schema,plan_required)
+    put_validator = schema_generator(plan_schema,[])
+
+    __tablename__ = 'platesets'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+
+    name = db.Column(db.String(), nullable=False)
+    description = db.Column(db.String())
+
+    plates = db.relationship('Plate', secondary=plates_platesets, lazy='subquery',backref=db.backref('platesets', lazy=True))
+
+
+class Distribution(db.Model):
+    validator = schema_generator(plan_schema,plan_required)
+    put_validator = schema_generator(plan_schema,[])
+
+    __tablename__ = 'distributions'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+
+    name = db.Column(db.String(), nullable=False)
+    description = db.Column(db.String())
+
+
+
+
+###
+
+distributions_orders = db.Table('distributions_orders',
+    db.Column('distributions_uuid', UUID(as_uuid=True), db.ForeignKey('distributions.uuid'), primary_key=True),
+    db.Column('orders_uuid', UUID(as_uuid=True), db.ForeignKey('orders.uuid'), primary_key=True, nullable=True),
+)
+
+
+class Order(db.Model):
+    validator = schema_generator(plan_schema,plan_required)
+    put_validator = schema_generator(plan_schema,[])
+
+    __tablename__ = 'orders'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+
+    name = db.Column(db.String())
+    notes = db.Column(db.String())
+
+    address = db.Column(UUID, db.ForeignKey('addresses.uuid'),nullable=False)
+    distributions = db.relationship('Order', secondary=distributions_orders, lazy='subquery',backref=db.backref('orders',lazy=True))
+    materialtransferagreeement = db.Column(UUID, db.ForeignKey('materialtransferagreements.uuid'),nullable=True)
+
+
+
+class Shipment(db.Model):
+    validator = schema_generator(plan_schema,plan_required)
+    put_validator = schema_generator(plan_schema,[])
+
+    __tablename__ = 'shipments'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+
+    name = db.Column(db.String(), nullable=False)
+    description = db.Column(db.String())
+
+    parcel = db.Column(UUID, db.ForeignKey('parcels.uuid'),nullable=False)
+
+    shipment_type = db.Column(db.String())
+    shipment_id = db.Column(db.String()) # Shippo shipment object id
+    transaction_id = db.Column(db.String()) # Shippo transaction id
+
+###
+
+class Address(db.Model): # Integrate with shippo
+    __tablename__ = 'addresses'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+
+    name = db.Column(db.String(), nullable=False)
+    company = db.Column(db.String())
+    street1 = db.Column(db.String(), nullable=False)
+    street_no = db.Column(db.String())
+    street2 = db.Column(db.String())
+    street3 = db.Column(db.String())
+    city = db.Column(db.String())
+    zip_code = db.Column(db.String())
+    state = db.Column(db.String()) # ISO 2 country code
+    phone = db.Column(db.String())
+    email = db.Column(db.String()) # email
+
+    user_uuid = db.Column(UUID(as_uuid=True), nullable=False)
+    institution = db.Column(UUID, db.ForeignKey('institutions.uuid'),nullable=False)
+    object_id = db.Column(db.String()) # shippo object id
+
+class Parcel(db.Model):
+    __tablename__ = 'parcels'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+
+    length = db.Column(db.Integer())
+    width = db.Column(db.Integer())
+    height = db.Column(db.Integer())
+    distance_unit = db.Column(db.String())
+    weight = db.Column(db.Integer())
+    mass_unit = db.Column(db.String())
+
+    object_id = db.Column(db.String()) # Shippo object id
+
+
+
+class Institution(db.Model):
+    __tablename__ = 'institutions'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+
+    name = db.Column(db.String())
+    signed_master = db.Column(db.Boolean())
+
+
+class MaterialTransferAgreement(db.Model): # get dat file attachment homie
+    __tablename__ = 'materialtransferagreements'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+
+    institution = db.Column(UUID, db.ForeignKey('institutions.uuid'),nullable=False)
+    mta_type = db.Column(db.String(), nullable=False)
