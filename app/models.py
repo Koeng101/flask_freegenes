@@ -331,7 +331,6 @@ class Sample(db.Model):
     status = db.Column(db.String)
     evidence = db.Column(db.String) # ngs, sanger, TWIST - capitals denote outside folks
 
-    pileups = db.relationship('Pileup',backref='sample')
     wells = db.relationship('Well', secondary=samples_wells, lazy='subquery',
         backref=db.backref('samples', lazy=True))
 
