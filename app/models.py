@@ -630,7 +630,7 @@ class Shipment(db.Model):
 
     parcel_uuid = db.Column(UUID, db.ForeignKey('parcels.uuid'),nullable=False)
     order_uuid = db.Column(UUID,db.ForeignKey('orders.uuid'),nullable=False)
-    address_from = db.Column(UUID, db.ForeignKey('address.uuid'),nullable=False)
+    address_from = db.Column(UUID, db.ForeignKey('addresses.uuid'),nullable=False)
 
     shipment_type = db.Column(db.String())
     shipment_id = db.Column(db.String()) # Shippo shipment object id

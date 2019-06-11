@@ -24,7 +24,7 @@ from .config import *
 
 from .models import db
 
-from .routes import ns_token, ns_collection, ns_part, ns_part_modifiers, ns_author, ns_organism, ns_protocol, ns_plate, ns_sample, ns_well, ns_file, ns_operator, ns_plan
+from .routes import ns_token, ns_collection, ns_part, ns_part_modifiers, ns_author, ns_organism, ns_protocol, ns_plate, ns_sample, ns_well, ns_file, ns_operator, ns_plan, ns_plateset, ns_distribution, ns_order, ns_institution, ns_materialtransferagreement, ns_shipment, ns_address, ns_parcel
 # initialization
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = URL
@@ -48,7 +48,7 @@ api = Api(app, version='1.1', title=API_TITLE,
 migrate = Migrate(app, db)
 
 
-namespaces = [ns_token, ns_collection, ns_part, ns_part_modifiers, ns_author, ns_organism, ns_protocol, ns_plate, ns_sample, ns_well, ns_file, ns_operator, ns_plan]
+namespaces = [ns_token, ns_collection, ns_part, ns_part_modifiers, ns_author, ns_organism, ns_protocol, ns_plate, ns_sample, ns_well, ns_file, ns_operator, ns_plan, ns_plateset, ns_distribution, ns_order, ns_institution, ns_materialtransferagreement, ns_shipment, ns_address, ns_parcel]
 for ns in namespaces:
     api.add_namespace(ns)
 
