@@ -743,7 +743,7 @@ class Parcel(db.Model):
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
     name = db.Column(db.String())
-    description = db.Columnn(db.String())
+    description = db.Column(db.String())
     length = db.Column(db.Float())
     width = db.Column(db.Float())
     height = db.Column(db.Float())
@@ -754,7 +754,7 @@ class Parcel(db.Model):
     object_id = db.Column(db.String(),nullable=False) # Shippo object id
 
     def toJSON(self,full=None):
-        dictionary = {"uuid": self.uuid, "length": self.length, "width": self.width, "height": self.height, "distance_unit": self.distance_unit, "weight": self.weight, "mass_unit": self.mass_unit, "object_id": self.object_id}
+        dictionary = {"uuid": self.uuid, "name": self.name, "description": self.description, "length": self.length, "width": self.width, "height": self.height, "distance_unit": self.distance_unit, "weight": self.weight, "mass_unit": self.mass_unit, "object_id": self.object_id}
         return dictionary
 
 institution_schema = {
