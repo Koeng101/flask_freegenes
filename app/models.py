@@ -723,6 +723,8 @@ class Address(db.Model): # Integrate with shippo
 
 parcel_schema = {
         "uuid": uuid_schema,
+        "name": generic_string,
+        "description": generic_string,
         "length": generic_num,
         "width": generic_num,
         "height": generic_num,
@@ -730,7 +732,7 @@ parcel_schema = {
         "weight": generic_num,
         "mass_unit": {"type": "string", "enum": ["g","oz","lb","kg"]},
         }
-parcel_required = ["length","width","height","distance_unit","weight","mass_unit"]
+parcel_required = ["name","length","width","height","distance_unit","weight","mass_unit"]
 class Parcel(db.Model):
     validator = schema_generator(parcel_schema,parcel_required)
     put_validator = schema_generator(parcel_schema,[])
@@ -740,6 +742,8 @@ class Parcel(db.Model):
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
+    name = db.Column(db.String())
+    description = db.Columnn(db.String())
     length = db.Column(db.Float())
     width = db.Column(db.Float())
     height = db.Column(db.Float())
