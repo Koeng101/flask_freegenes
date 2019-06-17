@@ -799,3 +799,4 @@ class MaterialTransferAgreement(db.Model):
     mta_type = db.Column(db.String(), nullable=False)
     file = db.Column(UUID, db.ForeignKey('files.uuid'),nullable=True)
 
+
