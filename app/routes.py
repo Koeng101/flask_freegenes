@@ -229,7 +229,12 @@ class CollectionAllRoute(Resource):
         '''Get a single collection and everything down the tree'''
         def recursive_down(collection):
             dictionary = collection.toJSON()
-            dictionary['parts'] = [part.toJSON(full='full') for part in collection.parts]
+            new_parts = []
+            for part in collection.parts:
+                new_part = part.toJSON()
+                new_part['samples'] = [sample.toJSON() for sample in part.samples]
+                new_parts.append(new_part)
+            dictionary['parts'] = new_parts
             if len(collection.children) > 0:
                 dictionary['subcollections'] = [recursive_down(subcollection) for subcollection in collection.children]
             return dictionary
