@@ -437,7 +437,7 @@ class Protocol(db.Model):
     plates = db.relationship('Plate',backref='protocol') # TODO ADD plates in toJSON
 
     def toJSON(self,full=None):
-        dictionary= {'uuid': self.uuid, 'description': self.description, 'protocol': self.protocol, 'protocol_type':self.protocol_type}
+        dictionary= {'uuid': self.uuid, 'description': self.description, 'protocol': self.protocol}
         if full=='full':
             dictionary['plates'] = [plate.uuid for plate in self.plates]
         return dictionary
