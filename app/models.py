@@ -338,7 +338,6 @@ class Sample(db.Model):
         dictionary= {'uuid':self.uuid,'derived_from':self.derived_from,'part_uuid':self.part_uuid, 'status':self.status, 'evidence':self.evidence}
         if full=='full':
             dictionary['wells'] = [well.uuid for well in self.wells]
-            dictionary['pileups'] = [pileup.uuid for pileup in self.pileups]
         return dictionary
 
 # Wells #
