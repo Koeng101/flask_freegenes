@@ -156,6 +156,7 @@ class CRUD():
                     if validate_json == True:
                         try:
                             print(request.is_json)
+                            print(request.json)
                             validate(instance=request.get_json(),schema=cls.validator)
                         except Exception as e:
                             return make_response(jsonify({'message': 'Schema validation failed: {}'.format(e)}),400)
