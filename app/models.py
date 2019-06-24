@@ -319,6 +319,7 @@ samples_wells = db.Table('samples_wells',
 class Sample(db.Model):
     validator = schema_generator(sample_schema,sample_required)
     put_validator = schema_generator(sample_schema,[])
+    many_to_many = [{'wells': Well}]
 
     __tablename__ = 'samples'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -367,6 +368,7 @@ well_required = ['address','volume','media','plate_uuid','samples']
 class Well(db.Model): # Constrain Wells to being unique to each plate
     validator = schema_generator(well_schema,well_required)
     put_validator = schema_generator(well_schema,[])
+    many_to_many = [{'samples': Sample}]
 
     __tablename__ = 'wells'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -534,6 +536,7 @@ plateset_required = ['name','plates']
 class PlateSet(db.Model):
     validator = schema_generator(plateset_schema,plateset_required)
     put_validator = schema_generator(plateset_schema,[])
+    many_to_many = [{'plates': Plate}]
 
     __tablename__ = 'platesets'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -561,6 +564,7 @@ distribution_required = ['name','platesets']
 class Distribution(db.Model):
     validator = schema_generator(distribution_schema,distribution_required)
     put_validator = schema_generator(distribution_schema,[])
+    many_to_many = [{'platesets': PlateSet}]
 
     __tablename__ = 'distributions'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -598,6 +602,7 @@ order_required = ['name','address','distributions']
 class Order(db.Model):
     validator = schema_generator(order_schema,order_required)
     put_validator = schema_generator(order_schema,[])
+    many_to_many = [{'distributions': Distribution}]
 
     __tablename__ = 'orders'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
