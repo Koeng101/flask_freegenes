@@ -338,7 +338,6 @@ class Sample(db.Model):
         dictionary= {'uuid':self.uuid,'derived_from':self.derived_from,'part_uuid':self.part_uuid, 'status':self.status, 'evidence':self.evidence}
         if full=='full':
             dictionary['wells'] = [well.uuid for well in self.wells]
-            dictionary['pileups'] = [pileup.uuid for pileup in self.pileups]
         return dictionary
 
 # Wells #
@@ -385,7 +384,7 @@ class Well(db.Model): # Constrain Wells to being unique to each plate
             nullable=False)
 
     def toJSON(self,full=None):
-        dictionary={'uuid':self.uuid,'address':self.address,'volume':self.volume,'quantity':self.quantity,'media':self.media,'well_type':self.well_type,'organism':self.organism,'plate_uuid':self.plate_uuid} 
+        dictionary={'uuid':self.uuid,'address':self.address,'volume':self.volume,'quantity':self.quantity,'media':self.media,'organism':self.organism,'plate_uuid':self.plate_uuid} 
         if full=='full':
             dictionary['samples'] = [sample.uuid for sample in self.samples]
         return dictionary
@@ -438,7 +437,7 @@ class Protocol(db.Model):
     plates = db.relationship('Plate',backref='protocol') # TODO ADD plates in toJSON
 
     def toJSON(self,full=None):
-        dictionary= {'uuid': self.uuid, 'description': self.description, 'protocol': self.protocol, 'status': self.status, 'protocol_type':self.protocol_type}
+        dictionary= {'uuid': self.uuid, 'description': self.description, 'protocol': self.protocol}
         if full=='full':
             dictionary['plates'] = [plate.uuid for plate in self.plates]
         return dictionary
