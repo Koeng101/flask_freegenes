@@ -155,9 +155,7 @@ class CRUD():
                 def post(self):
                     if validate_json == True:
                         try:
-                            print(request.json)
-                            print(request.get_json())
-                            print(cls.validator)
+                            print(request.is_json)
                             validate(instance=request.get_json(),schema=cls.validator)
                         except Exception as e:
                             return make_response(jsonify({'message': 'Schema validation failed: {}'.format(e)}),400)
