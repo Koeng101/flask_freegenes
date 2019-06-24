@@ -155,7 +155,7 @@ class CRUD():
                 def post(self):
                     if validate_json == True:
                         try:
-                            print(requests.get_json())
+                            print(request.get_json())
                             print(cls.validator)
                             validate(instance=request.get_json(),schema=cls.validator)
                         except Exception as e:
