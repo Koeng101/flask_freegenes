@@ -267,7 +267,7 @@ plate_schema = {
   "plate_vendor_id": generic_string,
   "breadcrumb": generic_string,
   "plate_name": generic_string,
-  "plate_form": {'type': 'string', 'enum': ['standard96,deep96,standard384,deep384']},
+  "plate_form": {'type': 'string', 'enum': ['standard96','deep96','standard384','deep384']},
   "plate_type": {'type': 'string', 'enum': ['archive_glycerol_stock','glycerol_stock','culture','distro']},
   "notes": generic_string,
   "protocol_uuid": uuid_schema
@@ -319,7 +319,6 @@ samples_wells = db.Table('samples_wells',
 class Sample(db.Model):
     validator = schema_generator(sample_schema,sample_required)
     put_validator = schema_generator(sample_schema,[])
-    many_to_many = [{'wells': Well}]
 
     __tablename__ = 'samples'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -368,7 +367,7 @@ well_required = ['address','volume','media','plate_uuid','samples']
 class Well(db.Model): # Constrain Wells to being unique to each plate
     validator = schema_generator(well_schema,well_required)
     put_validator = schema_generator(well_schema,[])
-    many_to_many = [{'samples': Sample}]
+    #many_to_many = [{'samples': Sample}]
 
     __tablename__ = 'wells'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -536,7 +535,7 @@ plateset_required = ['name','plates']
 class PlateSet(db.Model):
     validator = schema_generator(plateset_schema,plateset_required)
     put_validator = schema_generator(plateset_schema,[])
-    many_to_many = [{'plates': Plate}]
+    #many_to_many = [{'plates': Plate}]
 
     __tablename__ = 'platesets'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -564,7 +563,7 @@ distribution_required = ['name','platesets']
 class Distribution(db.Model):
     validator = schema_generator(distribution_schema,distribution_required)
     put_validator = schema_generator(distribution_schema,[])
-    many_to_many = [{'platesets': PlateSet}]
+    #many_to_many = [{'platesets': PlateSet}]
 
     __tablename__ = 'distributions'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -602,7 +601,7 @@ order_required = ['name','address','distributions']
 class Order(db.Model):
     validator = schema_generator(order_schema,order_required)
     put_validator = schema_generator(order_schema,[])
-    many_to_many = [{'distributions': Distribution}]
+    #many_to_many = [{'distributions': Distribution}]
 
     __tablename__ = 'orders'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
