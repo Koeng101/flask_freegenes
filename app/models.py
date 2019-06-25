@@ -803,4 +803,5 @@ class MaterialTransferAgreement(db.Model):
     mta_type = db.Column(db.String(), nullable=False)
     file = db.Column(UUID, db.ForeignKey('files.uuid'),nullable=True)
 
-
+    def toJSON(self,full=None):
+        dictionary = {"uuid": self.uuid, "institution": self.institution, "mta_type": self.mta_type, "file": self.file}
