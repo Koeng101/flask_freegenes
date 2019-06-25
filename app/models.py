@@ -360,7 +360,8 @@ well_schema = {
   "quantity": optional_num,
   "media": generic_string,
   "plate_uuid": uuid_schema,
-    "samples": force_to_many
+    "samples": force_to_many,
+    "organism": generic_string
 }
 well_required = ['address','volume','media','plate_uuid','samples']
 class Well(db.Model): # Constrain Wells to being unique to each plate
@@ -790,8 +791,8 @@ mta_schema = {
         }
 mta_required = ["institution","mta_type","file"]
 class MaterialTransferAgreement(db.Model): 
-    validator = schema_generator(shipment_schema,shipment_required)
-    put_validator = schema_generator(shipment_schema,[])
+    validator = schema_generator(mta_schema,mta_required)
+    put_validator = schema_generator(mta_schema,[])
 
     __tablename__ = 'materialtransferagreements'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
