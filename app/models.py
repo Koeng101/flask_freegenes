@@ -307,7 +307,7 @@ sample_schema = {
     "part_uuid": uuid_schema,
     "status": {'type': 'string', 'enum': ['Confirmed', 'Mutated']},
     "derived_from": uuid_schema,
-    "evidence": {'type': 'string', 'enum': ['Twist_Confirmed','NGS','Sanger','Nanopore']},
+    "evidence": {'type': 'string', 'enum': ['Twist_Confirmed','NGS','Sanger','Nanopore','Derived']},
     "wells": force_to_many,
 }
 sample_required = ['part_uuid','status','evidence']
