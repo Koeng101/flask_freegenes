@@ -805,3 +805,4 @@ class MaterialTransferAgreement(db.Model):
 
     def toJSON(self,full=None):
         dictionary = {"uuid": self.uuid, "institution": self.institution, "mta_type": self.mta_type, "file": self.file}
+        return dictionary
