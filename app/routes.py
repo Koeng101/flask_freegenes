@@ -591,7 +591,7 @@ class ShipmentRates(Resource):
     @requires_auth(['moderator','admin'])
     def get(self,uuid):
         obj = Shipment.query.filter_by(uuid=uuid).first().toJSON()
-        rates = shippo.Shipment.retrieve(obj['object_id'],api_key=SHIPPO_KEY)['rates']
+        rates = shippo.Shipment.retrieve(obj['object_id'],api_key=SHIPPO_KEY)
         return jsonify(rates)
 
 
