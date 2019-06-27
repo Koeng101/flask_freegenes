@@ -641,7 +641,7 @@ base = {"collections": {"schema": collection_schema, "required": collection_requ
 
 for k,v in base.items():
     if k != 'metadata':
-        base[k] = schema_generator(v['schema'],v['required']+['uuid'])
+        base[k] = {"type": "array", "items": schema_generator(v['schema'],v['required']+['uuid'])}
 
 bionet_packet = schema_generator(base,['collections','authors','parts'])
 
