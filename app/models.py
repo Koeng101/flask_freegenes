@@ -408,7 +408,8 @@ well_schema = {
   "media": generic_string,
   "plate_uuid": uuid_schema,
     "samples": force_to_many,
-    "organism": generic_string
+    "organism": generic_string,
+    "organism_uuid": uuid_schema
 }
 well_required = ['address','volume','media','plate_uuid','samples']
 class Well(db.Model): # Constrain Wells to being unique to each plate
@@ -427,7 +428,7 @@ class Well(db.Model): # Constrain Wells to being unique to each plate
     quantity = db.Column(db.Float, nullable=True) # fmol - if null, unknown
     media = db.Column(db.String(32)) # Liquid
     organism = db.Column(db.String) # IMPLEMENT ORGANISM CONTROL
-
+    organism_uuid = db.Column(UUID, db.ForeignKey('organisms.uuid'),nullable=True)
     plate_uuid = db.Column(UUID, db.ForeignKey('plates.uuid'),
             nullable=False)
 
