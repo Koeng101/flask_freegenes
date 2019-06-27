@@ -549,7 +549,7 @@ class ShippoCRUD():
                         print(e)
                         return make_response(jsonify({'message': 'UUID for address_from, address_to, or parcel was not found'}),501)
                     if request.get_json()['shipment_type'] == 'dry_ice':
-                        extras = {'dry_ice':{"contains_dry_ice": true, "weight": "2"}}
+                        extras = {'dry_ice':{"contains_dry_ice": True, "weight": "2"}}
                     else:
                         extras = {}
                     obj = create_func(address_from=address_from['object_id'], address_to=address_to['object_id'], parcels=parcel['object_id'],api_key=SHIPPO_KEY,extras=extras)
