@@ -636,7 +636,8 @@ shipment_schema = {
         "address_to": uuid_schema,
         "shipment_type": {"type": "string", "enum": ['dry_ice','small_box']},
         "plates": force_to_many,
-        "status": {'type': "string", "enum": ["Planned","Shipped","Delivered","Canceled"]}
+        "status": {'type': "string", "enum": ["Planned","Shipped","Delivered","Canceled"]},
+        "billing": {"type": "object"}
         }
 shipment_required = ['name','parcel_uuid','order_uuid','address_from','address_to','shipment_type','plates']
 class Shipment(db.Model):
@@ -661,6 +662,7 @@ class Shipment(db.Model):
     transaction_id = db.Column(db.String()) # Shippo transaction id
 
     status = db.Column(db.String()) # Status in house
+    billing = db.Column(db.JSON)
 
     plates = db.relationship('Plate', secondary=plates_shipments, lazy='subquery',backref=db.backref('shipments',lazy=True))
 

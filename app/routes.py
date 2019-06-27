@@ -552,6 +552,8 @@ class ShippoCRUD():
                         extra = {'dry_ice':{"contains_dry_ice": True, "weight": "2"}}
                     else:
                         extra = {}
+                    if request.get_json()['billing'] != None:
+                        extra['billing'] = request.get_json()['billing']
                     obj = create_func(address_from=address_from['object_id'], address_to=address_to['object_id'], parcels=parcel['object_id'],api_key=SHIPPO_KEY,extra=extra)
 
                 else:
