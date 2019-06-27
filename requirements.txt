@@ -17,4 +17,4 @@ gunicorn
 cryptography
 pyjwt
 
-shippo_fixed
+shippo==2.0.0rc1
