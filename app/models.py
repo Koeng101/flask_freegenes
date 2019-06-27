@@ -36,12 +36,13 @@ optional_string ={'oneOf': [generic_string,null]}
 
 generic_num = { "type": "number" }
 optional_num = {'oneOf': [generic_num,null]}
+dna_string = {"type": "string", "pattern": "^[ATGC]*$"}
 
 generic_date = {'type': 'string','format':'date-time'}
 optional_date = {'oneOf': [generic_date,null]}
 
 name = {'type': 'string','minLength': 3,'maxLength': 30}
-tags = {'type': 'array', 'items': optional_string}
+tags = {'type': 'array', 'items': generic_string}
 force_to_many = {'type': 'array', 'items': uuid_schema}
 to_many = {'type': 'array', 'items': {'oneOf': [uuid_schema,null]}}
 #many_to_many = {'anyOf': [{'type': 'array','items': uuid},{'type': 'array','items': null}]}
@@ -150,6 +151,14 @@ class Files(db.Model):
 
 
 # Think things
+collection_schema = {
+        "uuid": uuid_schema,
+        "parent_uuid": uuid_schema,
+        "name": generic_string,
+        "readme": generic_string,
+        }
+collection_required = ['name','readme']
+
 class Collection(db.Model):
     __tablename__ = 'collections'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -173,6 +182,15 @@ class Collection(db.Model):
             dictionary['parts'] = [part.uuid for part in self.parts]
         return dictionary
 
+author_schema = {
+        "uuid": uuid_schema,
+        "name": generic_string,
+        "email": {"type": "string", "format": "email"},
+        "affiliation": generic_string,
+        "orcid": generic_string,
+        "tags": tags
+        }
+author_required = ['name','email']
 class Author(db.Model):
     __tablename__ = 'authors'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -190,6 +208,12 @@ class Author(db.Model):
             dictionary['parts'] = [part.uuid for part in self.parts]
         return dictionary
 
+organism_schema = {
+        "uuid": uuid_schema,
+        "name": generic_string,
+        "genotype": generic_string,
+        "tags": tags}
+organism_required=['name']
 class Organism(db.Model):
     __tablename__ = 'organisms'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -207,6 +231,27 @@ class Organism(db.Model):
         dictionary = {'uuid':self.uuid,'time_created':self.time_created,'time_updated':self.time_updated,'name':self.name,'description':self.description,'genotype':self.genotype,'tags':[tag.tag for tag in self.tags]}
         return dictionary
 
+part_schema = {
+    "uuid": uuid_schema,
+    "name":generic_string,
+    "description":generic_string,
+    "gene_id": generic_string,
+    "part_type": {"type": "string", "enum": ['cds','promoter','terminator','rbs','plasmid','partial_seq','linear_dna']},
+    "original_sequence": dna_string,
+    "optimized_sequence": dna_string,
+    "synthesized_sequence": dna_string,
+    "full_sequence": dna_string,
+    "genbank": {"type": "object"},
+    "vector": generic_string,
+    "primer_for": dna_string,
+    "primer_rev": dna_string,
+    "barcode": dna_string,
+    "translation": generic_string,
+    "tags": tags,
+    "collection_id": uuid_schema,
+    "authour_uuid": uuid_schema,
+    }
+part_required = ['name','description','full_sequence','author_uuid','collection_id']
 class Part(db.Model):
     __tablename__ = 'parts'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -309,6 +354,7 @@ sample_schema = {
     "derived_from": uuid_schema,
     "evidence": {'type': 'string', 'enum': ['Twist_Confirmed','NGS','Sanger','Nanopore','Derived']},
     "wells": force_to_many,
+    "vendor": generic_string,
 }
 sample_required = ['part_uuid','status','evidence']
 
@@ -330,6 +376,7 @@ class Sample(db.Model):
     
     status = db.Column(db.String)
     evidence = db.Column(db.String) # ngs, sanger, TWIST - capitals denote outside folks
+    vendor = db.Column(db.String)
 
     wells = db.relationship('Well', secondary=samples_wells, lazy='subquery',
         backref=db.backref('samples', lazy=True))

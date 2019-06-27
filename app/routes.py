@@ -629,7 +629,27 @@ class TransactionView(Resource):
         trans_obj = shippo.Transaction.retrieve(obj.transaction_id, api_key=SHIPPO_KEY)
         return jsonify({"label_url": trans_obj['label_url'], "tracking_number": trans_obj['tracking_number'], "tracking_url_provider": trans_obj["tracking_url_provider"]})
 
+###
+base = {"collections": {"schema": collection_schema, "required": collection_required},
+        "parts": {"schema": part_schema, "required": part_required},
+        "samples": {"schema": sample_schema, "required": sample_required},
+        "plates": {"schema": plate_schema, "required": plate_required},
+        "wells": {"schema": well_schema, "required": well_required},
+        "organisms": {"schema": organism_schema, "required": organism_required},
+        "authors": {"schema": author_schema, "required": author_required},
+        "metadata": {"type": "object"}}
 
+for k,v in base.items():
+    if k != 'metadata':
+        base[k] = schema_generator(v['schema'],v['required']+['uuid'])
 
+bionet_packet = schema_generator(base,['collections','authors','parts'])
+
+ns_bionet = Namespace('bionet_packet',description='Bionet packet validator')
+@ns_bionet.route('/validator')
+class BionetPacketValidator(Resource):
+    @ns_bionet.doc('validator for bionet export')
+    def get(self):
+        return jsonify(bionet_packet)
 
 
