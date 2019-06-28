@@ -447,11 +447,43 @@ def plate_recurse(uuid):
     plate['wells'] = wells
     return plate
 
+def plate_packet(uuid):
+    obj = Plate.query.filter_by(uuid=uuid).first()
+    wells = []
+    samples = []
+    parts = []
+    collections = []
+    authors = []
+
+    def unique(lst):
+        return list(set(lst))
+
+    for well in obj.wells:
+        wells.append(well.toJSON())
+        for sample in well.samples:
+            samples.append(sample.toJSON())
+            parts.append(sample.part.toJSON())
+            authors.append(sample.part.author.toJSON())
+            collections.append(sample.part.collections.toJSON())
+    dictionary = {
+            'plates': [obj.toJSON()],
+            'wells': unique(wells),
+            'samples': unique(samples),
+            'parts': unique(parts),
+            'collections': unique(collections),
+            'authors': unique(authors)
+            }
+    return dictionary
+
 @ns_plate.route('/recurse/<uuid>')
 class PlateSamples(Resource):
     def get(self,uuid):
         return jsonify(plate_recurse(uuid))
 
+@ns_plate.route('/packet/<uuid>')
+class PlatePacket(Resource):
+    def get(self,uuid):
+        return jsonify(plate_packet(uuid))
 ###
 
 ns_sample = Namespace('samples', description='Samples')
