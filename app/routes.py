@@ -1,4 +1,5 @@
 import json
+import numpy as np
 from jsonschema import validate
 
 import shippo
@@ -224,6 +225,8 @@ collection_model = ns_collection.model("collection", {
     })
 
 CRUD(ns_collection,Collection,collection_model,'collection')
+
+
 
 @ns_collection.route('/recurse/<uuid>')
 class CollectionAllRoute(Resource):
@@ -456,17 +459,25 @@ def plate_packet(uuid):
     authors = []
 
     def unique(lst):
-        return list(set(lst))
+        n_lst = [{k:v for k,v in dic.items() if v != None} for dic in lst]
+        return list({str(item["uuid"]): item for item in n_lst}.values())
 
     for well in obj.wells:
-        wells.append(well.toJSON())
+        wells.append(well.toJSON(full='full'))
         for sample in well.samples:
             samples.append(sample.toJSON())
             parts.append(sample.part.toJSON())
             authors.append(sample.part.author.toJSON())
-            collections.append(sample.part.collections.toJSON())
+            def recursive_up(collection,lst=[]):
+                lst.append(collection.toJSON())
+                NoneType = type(None)
+                if not type(collection.parent) is NoneType:
+                    lst+=recursive_up(collection.parent)
+                return lst
+            collections+=recursive_up(sample.part.collections)
+            
     dictionary = {
-            'plates': [obj.toJSON()],
+            'plates': unique([obj.toJSON()]),
             'wells': unique(wells),
             'samples': unique(samples),
             'parts': unique(parts),
@@ -673,7 +684,7 @@ base = {"collections": {"schema": collection_schema, "required": collection_requ
 
 for k,v in base.items():
     if k != 'metadata':
-        base[k] = {"type": "array", "items": schema_generator(v['schema'],v['required']+['uuid'])}
+        base[k] = {"type": "array", "items": schema_generator(v['schema'],v['required']+['uuid'], additionalProperties=True)}
 
 bionet_packet = schema_generator(base,['collections','authors','parts'])
 

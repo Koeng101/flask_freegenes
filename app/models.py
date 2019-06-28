@@ -168,7 +168,9 @@ class Collection(db.Model):
     parts = db.relationship('Part',backref='collections')
     parent_uuid = db.Column(UUID, db.ForeignKey('collections.uuid'),
             nullable=True)
-    children = db.relationship('Collection')
+    parent = db.relationship('Collection', backref='children',remote_side=uuid)
+    #children = db.relationship('Collection',backref=db.backref('parent',lazy=True))
+
 
     tags = db.relationship('Tag', secondary=tags_collection, lazy='subquery',
         backref=db.backref('collections', lazy=True))
@@ -236,7 +238,7 @@ part_schema = {
     "name":generic_string,
     "description":generic_string,
     "gene_id": generic_string,
-    "part_type": {"type": "string", "enum": ['cds','promoter','terminator','rbs','plasmid','partial_seq','linear_dna']},
+    "part_type": {"type": "string", "enum": ['cds','promoter','terminator','rbs','plasmid','partial_seq','linear_dna','vector']},
     "original_sequence": dna_string,
     "optimized_sequence": dna_string,
     "synthesized_sequence": dna_string,

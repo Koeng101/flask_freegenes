@@ -39,4 +39,13 @@ Fields:
 | translation | The protein translation if this element is a CDS | Optional ||
 | vector | The name of the vector this part exists in | Optional ||
 
+## The Collection
 
+| Field | Parameter | Required? | Enum |
+| ----- | --------- | --------- | ---- |
+| uuid | A unique identifier | Required ||
+| readme | Collection's description | Required ||
+| name | Collection's name | Required ||
+| parent_uuid | Collection's parent collection | Optional ||
+
+## The Organism
