@@ -406,7 +406,7 @@ well_schema = {
     "uuid": uuid_schema,
   "address": {"type": "string", "enum": Plate_loc(height=16,length=24).locations},
   "volume": { "type": "number" },
-  "quantity": optional_num,
+  "quantity": generic_num,
   "media": generic_string,
   "plate_uuid": uuid_schema,
     "samples": force_to_many,
