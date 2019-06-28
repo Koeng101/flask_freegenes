@@ -23,10 +23,10 @@ Fields:
 | ----- | --------- | --------- | ---- |
 | uuid | A unique identifier | Required ||
 | author_uuid | The author's uuid | Required ||
-| collection_id | The collection's uuid that this part belongs to | Required ||
-| description | A descritpion of this genetic element | Required ||
-| name | The genetic element's name | Required ||
-| optimized_sequence | The genetic element's sequence | Required ||
+| collection_id | The collection's uuid that this element belongs to | Required ||
+| description | This genetic element's description | Required ||
+| name | This genetic element's name | Required ||
+| optimized_sequence | This genetic element's sequence | Required ||
 | part_type | The type of genetic element | Required | cds, promoter, terminator, rbs, plasmid, partial_seq, linear_dna, vector |
 | barcode | A part's unique barcode | Optional ||
 | full_sequence | The full sequence of this genetic element INCLUDING vector if possible | Optional ||
