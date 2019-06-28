@@ -15,4 +15,10 @@ Before delving into specifics, the general map of a Bionet Packet is the followi
 - A plate contains many wells
 
 ## The Part
-At the core of the bionet packet is the `part`. A `part` is a 
+At the core of the bionet packet is the `part`. A `part` contains most information relevant to working with the genetic element it represents.
+
+Fields:
+
+| Field | Parameter |
+| ----- | --------- |
+| uuid | A unique identifier | 
