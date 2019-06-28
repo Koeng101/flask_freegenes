@@ -20,7 +20,7 @@ At the core of the bionet packet is the `part`. A `part` contains most informati
 Fields:
 
 | Field | Parameter | Required? | Enum |
-| ----- | --------- | --------- ||
+| ----- | --------- | --------- | ---- |
 | uuid | A unique identifier | Required ||
 | author_uuid | The author's uuid | Required ||
 | barcode | A part's unique barcode | Optional ||
