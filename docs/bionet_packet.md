@@ -28,7 +28,6 @@ Fields:
 | name | The genetic element's name | Required ||
 | optimized_sequence | The genetic element's sequence | Required ||
 | part_type | The type of genetic element | Required | cds, promoter, terminator, rbs, plasmid, partial_seq, linear_dna, vector |
-
 | barcode | A part's unique barcode | Optional ||
 | full_sequence | The full sequence of this genetic element INCLUDING vector if possible | Optional ||
 | genbank | A JSON representation of the element's would-be genbank file | Optional ||
