@@ -433,7 +433,7 @@ class Well(db.Model): # Constrain Wells to being unique to each plate
             nullable=False)
 
     def toJSON(self,full=None):
-        dictionary={'uuid':self.uuid,'address':self.address,'volume':self.volume,'quantity':self.quantity,'media':self.media,'organism':self.organism,'plate_uuid':self.plate_uuid} 
+        dictionary={'uuid':self.uuid,'address':self.address,'volume':self.volume,'quantity':self.quantity,'media':self.media,'organism':self.organism,'organism_uuid':self.organism_uuid,'plate_uuid':self.plate_uuid} 
         if full=='full':
             dictionary['samples'] = [sample.uuid for sample in self.samples]
         return dictionary
