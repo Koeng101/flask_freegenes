@@ -679,10 +679,10 @@ class ConfirmShipment(Resource):
         obj = Shipment.query.filter_by(uuid=uuid).first()
         for plate in obj.plates:
             plate.status = 'Shipped'
-            session.add(plate)
+            db.session.add(plate)
         obj.status = 'Confirmed'
-        session.add(obj)
-        session.commit()
+        db.session.add(obj)
+        db.session.commit()
         return jsonify({'message': 'Thank you!'})
 
 ###
