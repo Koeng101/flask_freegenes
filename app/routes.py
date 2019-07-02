@@ -672,6 +672,19 @@ class TransactionView(Resource):
         trans_obj = shippo.Transaction.retrieve(obj.transaction_id, api_key=SHIPPO_KEY)
         return jsonify({"label_url": trans_obj['label_url'], "tracking_number": trans_obj['tracking_number'], "tracking_url_provider": trans_obj["tracking_url_provider"]})
 
+@ns_shipment.route('/confirm/<uuid>')
+class ConfirmShipment(Resource):
+    @ns_shipment.doc('confirm_shipment')
+    def get(self,uuid):
+        obj = Shipment.query.filter_by(uuid=uuid).first()
+        for plate in obj.plates:
+            plate.status = 'Shipped'
+            session.add(plate)
+        obj.status = 'Confirmed'
+        session.add(obj)
+        session.commit()
+        return jsonify({'message': 'Thank you!'})
+
 ###
 base = {"collections": {"schema": collection_schema, "required": collection_required},
         "parts": {"schema": part_schema, "required": part_required},
@@ -688,10 +701,10 @@ for k,v in base.items():
 
 bionet_packet = schema_generator(base,['collections','authors','parts'])
 
-ns_bionet = Namespace('bionet_packet',description='Bionet packet validator')
+ns_bionet = Namespace('fg_obj',description='FreeGenes Object validator')
 @ns_bionet.route('/validator')
 class BionetPacketValidator(Resource):
-    @ns_bionet.doc('validator for bionet export')
+    @ns_bionet.doc('validator for FreeGenes export')
     def get(self):
         return jsonify(bionet_packet)
 
