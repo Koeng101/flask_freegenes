@@ -357,6 +357,9 @@ sample_schema = {
     "evidence": {'type': 'string', 'enum': ['Twist_Confirmed','NGS','Sanger','Nanopore','Derived']},
     "wells": force_to_many,
     "vendor": generic_string,
+    "sample_type": {'type': 'string', 'enum': ['Plasmid', 'Illumina_Library']},
+    "index_for": dna_string,
+    "index_rev": dna_string
 }
 sample_required = ['part_uuid','status','evidence']
 
@@ -380,13 +383,19 @@ class Sample(db.Model):
     evidence = db.Column(db.String) # ngs, sanger, TWIST - capitals denote outside folks
     vendor = db.Column(db.String)
 
+    sample_type = db.Column(db.String)
+    index_for = db.Column(db.String)
+    index_rev = db.Column(db.String)
+
     wells = db.relationship('Well', secondary=samples_wells, lazy='subquery',
         backref=db.backref('samples', lazy=True))
 
     def toJSON(self, full=None):
-        dictionary= {'uuid':self.uuid,'derived_from':self.derived_from,'part_uuid':self.part_uuid, 'status':self.status, 'evidence':self.evidence}
+        dictionary= {'uuid':self.uuid,'derived_from':self.derived_from,'part_uuid':self.part_uuid, 'status':self.status, 'evidence':self.evidence, 'sample_type': self.sample_type}
         if full=='full':
             dictionary['wells'] = [well.uuid for well in self.wells]
+            dictionary['index_for'] = self.index_for
+            dictionary['index_rev'] = self.index_rev
         return dictionary
 
 # Wells #
