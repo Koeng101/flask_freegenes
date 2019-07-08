@@ -317,7 +317,8 @@ plate_schema = {
   "plate_form": {'type': 'string', 'enum': ['standard96','deep96','standard384','deep384']},
   "plate_type": {'type': 'string', 'enum': ['archive_glycerol_stock','glycerol_stock','culture','distro']},
   "notes": generic_string,
-  "protocol_uuid": uuid_schema
+  "protocol_uuid": uuid_schema,
+  "thaw_count": generic_num,
 }
 plate_required = ['status','breadcrumb','plate_name','plate_form','plate_type']
 
@@ -337,12 +338,13 @@ class Plate(db.Model):
     plate_form = db.Column(db.String(32))
     plate_type = db.Column(db.String(32)) # dna_plate, asssembly, transformation, agar_plate, deepwell, glycerol
     wells = db.relationship('Well',backref='plate')
+    thaw_count= db.Column(db.Integer, default=0)
 
     notes = db.Column(db.String)
     protocol_uuid = db.Column(UUID, db.ForeignKey('protocols.uuid'), nullable=True)
 
     def toJSON(self,full=None):
-        dictionary= {'uuid': self.uuid, 'plate_vendor_id':self.plate_vendor_id, 'breadcrumb':self.breadcrumb, 'plate_name': self.plate_name, 'plate_form': self.plate_form, 'plate_type': self.plate_type, 'status': self.status, 'protocol_uuid':self.protocol_uuid}
+        dictionary= {'uuid': self.uuid, 'plate_vendor_id':self.plate_vendor_id, 'breadcrumb':self.breadcrumb, 'plate_name': self.plate_name, 'plate_form': self.plate_form, 'plate_type': self.plate_type, 'thaw_count': self.thaw_count, 'status': self.status, 'protocol_uuid':self.protocol_uuid}
         if full=='full':
             dictionary['wells'] = [well.uuid for well in self.wells]
         return dictionary
