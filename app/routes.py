@@ -429,6 +429,51 @@ protocol_model = ns_protocol.schema_model('protocol', Protocol.validator)
 CRUD(ns_protocol,Protocol,protocol_model,'protocol',validate_json=True)
 
 ###
+ns_container = Namespace('containers',description='Containers')
+container_model = ns_container.schema_model('container',Container.validator)
+CRUD(ns_container,Container,container_model,'container',validate_json=True)
+
+def parent_tree(container):
+    parents = []
+    while container.parent_uuid != None:
+        parents.append(container.toJSON())
+        container = container.parent
+    parents.append(container.toJSON())
+    return parents
+
+def container_directory(container):
+    return '/'.join(reversed([x['name'] for x in parent_tree(container)]))
+
+def container_temp(container):
+    temp = container.estimated_temperature
+    while temp == None:
+        container = container.parent
+        temp = container.estimated_temperature
+    return temp
+
+@ns_container.route('/up_tree/<uuid>')
+class ContainerUpRoute(Resource):
+    '''Shows a container all the way up'''
+    @ns_container.doc('container_up')
+    def get(self,uuid):
+        return jsonify(parent_tree(Container.query.filter_by(uuid=uuid).first()))
+
+@ns_container.route('/str/<uuid>')
+class ContainerStrRoute(Resource):
+    @ns_container.doc('container_str_up')
+    def get(self,uuid):
+         return container_directory(Container.query.filter_by(uuid=uuid).first())
+
+@ns_container.route('/temp/<uuid>')
+class ContainerStrRoute(Resource):
+    '''Shows a container all the way up in directory format'''
+    @ns_container.doc('container_temp')
+    def get(self,uuid):
+         return container_temp(Container.query.filter_by(uuid=uuid).first())
+
+
+
+###
 
 ns_plate = Namespace('plates', description='Plates')
 plate_model = ns_plate.schema_model('plate', Plate.validator)
@@ -516,10 +561,9 @@ class WellToPlate(Resource):
 ###
 ###
 ###
-
-ns_operator = Namespace('operators', description='Operators')
-operator_model = ns_operator.schema_model('operator', Operator.validator)
-CRUD(ns_operator,Operator,operator_model,'operator',validate_json=True)
+ns_operation = Namespace('operations',description='Operations')
+operation_model = ns_operation.schema_model('operation', Operation.validator)
+CRUD(ns_operation,Operation,operation_model,'operation',validate_json=True)
 
 ns_plan = Namespace('plans',description='Plans')
 plan_model = ns_plan.schema_model('plan', Plan.validator)
@@ -707,5 +751,6 @@ class BionetPacketValidator(Resource):
     @ns_bionet.doc('validator for FreeGenes export')
     def get(self):
         return jsonify(bionet_packet)
+
 
 
