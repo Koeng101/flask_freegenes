@@ -18,3 +18,4 @@ cryptography
 pyjwt
 
 shippo==2.0.0rc1
+anytree
