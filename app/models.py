@@ -353,7 +353,7 @@ class Container(db.Model):
     def toJSON(self, full=None):
         dictionary= {'uuid':self.uuid,'name':self.name,'description':self.description,'container_type': self.container_type,'estimated_temperature':self.estimated_temperature,'x':self.x,'y':self.y,'z':self.z, 'image_uuid': self.image_uuid, 'parent_uuid':self.parent_uuid}
         if full=='full':
-            pass
+            dictionary['plates'] = [obj.toJSON() for obj in self.plates]
         return dictionary
 
 robot_schema = {

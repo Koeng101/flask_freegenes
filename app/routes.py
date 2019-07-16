@@ -448,24 +448,29 @@ def parent_tree(container):
 def container_directory(container):
     return '/'.join(reversed([x['name'] for x in parent_tree(container)]))
 
-def child_tree(container):
+def child_tree(container,full=None):
     dictionary = container.toJSON()
 
-    dictionary['robots'] = [obj.toJSON() for obj in container.robots]
-    dictionary['modules'] = [obj.toJSON() for obj in container.modules]
-    dictionary['pipettes'] = [obj.toJSON() for obj in container.pipettes]
-
     if len(container.children) > 0:
-        dictionary['children'] = [child_tree(child) for child in container.children]
+        children = [child_tree(child,full=full) for child in container.children]
+    else:
+        children = []
+
+    if full == 'full':
+        children=[obj.toJSON() for obj in container.modules] + children
+        children=[obj.toJSON() for obj in container.pipettes] + children
+        children=[obj.toJSON() for obj in container.plates] + children
+    dictionary['children'] = children
+
     return dictionary
 
-def tree_str(container):
-    root = importer.import_(child_tree(container))
+def tree_str(container,full=None):
+    root = importer.import_(child_tree(container,full=full))
     lines = []
     for pre, _, node in RenderTree(root):
+        if not hasattr(node, 'name'):
+            node.name = node.plate_name
         lines.append("%s%s" % (pre, node.name))
-    for line in lines:
-        print(line)
     return '<pre>{}</pre>'.format('<br>'.join(lines))
 
 def container_temp(container):
@@ -489,12 +494,20 @@ class ContainerDownRoute(Resource):
     def get(self,uuid):
         return jsonify(child_tree(Container.query.filter_by(uuid=uuid).first()))
 
-@ns_container.route('/tree_view')
+@ns_container.route('/tree_view/')
 class ContainerTree(Resource):
     @ns_container.doc('container_tree')
     def get(self):
         headers = {'Content-Type': 'text/html'}
         return make_response(tree_str(Container.query.filter_by(container_type='Lab').first()))
+
+@ns_container.route('/tree_view_full/')
+class ContainerTreePlate(Resource):
+    @ns_container.doc('container_tree_full')
+    def get(self):
+        headers = {'Content-Type': 'text/html'}
+        return make_response(tree_str(Container.query.filter_by(container_type='Lab').first(),full='full'))
+
 
 @ns_container.route('/str/<uuid>')
 class ContainerStrRoute(Resource):
