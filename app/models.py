@@ -310,7 +310,7 @@ container_schema = {
     "uuid": uuid_schema,
     "name": {"type": "string", "pattern": "^[^/ ]+$"},
     "description": generic_string,
-    "container_type": {'type': 'string', 'enum': ['Trash','Lab','Room','Bench', 'Desk','Cabinet','Robot','Freezer','Fridge','Shelf','Rack','Incubator','Shaking_Incubator']},
+    "container_type": {'type': 'string', 'enum': ['Trash','Lab','Room','Bay','Bench', 'Desk','Cabinet','Robot','Freezer','Fridge','Shelf','Rack','Incubator','Shaking_Incubator']},
     "estimated_temperature": optional_num,
     "parent_uuid": uuid_schema,
     "x": generic_num,
