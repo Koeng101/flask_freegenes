@@ -4,6 +4,10 @@ from jsonschema import validate
 
 import shippo
 
+from anytree.importer import DictImporter
+from anytree import RenderTree
+importer = DictImporter()
+
 from .models import *
 from flask_restplus import Api, Resource, fields, Namespace 
 from flask import Flask, abort, request, jsonify, g, url_for, redirect
@@ -444,6 +448,26 @@ def parent_tree(container):
 def container_directory(container):
     return '/'.join(reversed([x['name'] for x in parent_tree(container)]))
 
+def child_tree(container):
+    dictionary = container.toJSON()
+
+    dictionary['robots'] = [obj.toJSON() for obj in container.robots]
+    dictionary['modules'] = [obj.toJSON() for obj in container.modules]
+    dictionary['pipettes'] = [obj.toJSON() for obj in container.pipettes]
+
+    if len(container.children) > 0:
+        dictionary['children'] = [child_tree(child) for child in container.children]
+    return dictionary
+
+def tree_str(container):
+    root = importer.import_(child_tree(container))
+    lines = []
+    for pre, _, node in RenderTree(root):
+        lines.append("%s%s" % (pre, node.name))
+    for line in lines:
+        print(line)
+    return '<pre>{}</pre>'.format('<br>'.join(lines))
+
 def container_temp(container):
     temp = container.estimated_temperature
     while temp == None:
@@ -453,25 +477,50 @@ def container_temp(container):
 
 @ns_container.route('/up_tree/<uuid>')
 class ContainerUpRoute(Resource):
-    '''Shows a container all the way up'''
+    '''Shows a container all the way up as a tree'''
     @ns_container.doc('container_up')
     def get(self,uuid):
         return jsonify(parent_tree(Container.query.filter_by(uuid=uuid).first()))
 
+@ns_container.route('/down_tree/<uuid>')
+class ContainerDownRoute(Resource):
+    '''Shows a container all the way down as a tree'''
+    @ns_container.doc('container_down')
+    def get(self,uuid):
+        return jsonify(child_tree(Container.query.filter_by(uuid=uuid).first()))
+
+@ns_container.route('/tree_view')
+class ContainerTree(Resource):
+    @ns_container.doc('container_tree')
+    def get(self):
+        headers = {'Content-Type': 'text/html'}
+        return make_response(tree_str(Container.query.filter_by(container_type='Lab').first()))
+
 @ns_container.route('/str/<uuid>')
 class ContainerStrRoute(Resource):
+    '''Shows a container all the way up as a string'''
     @ns_container.doc('container_str_up')
     def get(self,uuid):
          return container_directory(Container.query.filter_by(uuid=uuid).first())
 
-@ns_container.route('/temp/<uuid>')
+@ns_container.route('/temperature/<uuid>')
 class ContainerStrRoute(Resource):
-    '''Shows a container all the way up in directory format'''
+    '''Shows container temperature'''
     @ns_container.doc('container_temp')
     def get(self,uuid):
          return container_temp(Container.query.filter_by(uuid=uuid).first())
 
+ns_robot = Namespace('robots',description='Robots')
+robot_model = ns_robot.schema_model('robot',Robot.validator)
+CRUD(ns_robot,Robot,robot_model,'robot',validate_json=True)
 
+ns_module = Namespace('modules',description='Modules')
+module_model = ns_module.schema_model('module',Module.validator)
+CRUD(ns_module,Module,module_model,'module',validate_json=True)
+
+ns_pipette = Namespace('pipettes',description='Pipettes')
+pipette_model = ns_pipette.schema_model('pipette',Pipette.validator)
+CRUD(ns_pipette,Pipette,pipette_model,'pipette',validate_json=True)
 
 ###
 
@@ -668,7 +717,6 @@ parcel_model = ns_parcel.schema_model('parcel',Parcel.validator)
 CRUD(ns_parcel,Parcel,parcel_model,'parcel',validate_json=True,custom_post=True)
 ShippoCRUD(ns_parcel,Parcel,parcel_model,'parcel',shippo.Parcel.create)
 
-
 ns_shipment = Namespace('shipment',description='Shipments')
 shipment_model = ns_shipment.schema_model('shipment',Shipment.validator)
 CRUD(ns_shipment,Shipment,shipment_model,'shipment',validate_json=True,custom_post=True)
@@ -753,4 +801,5 @@ class BionetPacketValidator(Resource):
         return jsonify(bionet_packet)
 
 
+namespaces = ns_token, ns_collection, ns_part, ns_part_modifiers, ns_author, ns_organism, ns_protocol, ns_plate, ns_sample, ns_well, ns_file, ns_operation, ns_plan, ns_plateset, ns_distribution, ns_order, ns_institution, ns_materialtransferagreement, ns_shipment, ns_address, ns_parcel,ns_bionet, ns_container, ns_robot, ns_module, ns_pipette
 

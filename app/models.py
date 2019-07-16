@@ -316,7 +316,8 @@ container_schema = {
     "x": generic_num,
     "y": generic_num,
     "z": generic_num,
-    "image_uuid": uuid_schema
+    "image_uuid": uuid_schema,
+
 }
 container_required = ['name','container_type']
 
@@ -345,12 +346,120 @@ class Container(db.Model):
     parent = db.relationship('Container', backref='children',remote_side=uuid)
 
     plates = db.relationship('Plate',backref='container')
+    robots = db.relationship('Robot',backref='container')
+    modules = db.relationship('Module',backref='container')
+    pipettes = db.relationship('Pipette',backref='container')
 
     def toJSON(self, full=None):
         dictionary= {'uuid':self.uuid,'name':self.name,'description':self.description,'container_type': self.container_type,'estimated_temperature':self.estimated_temperature,'x':self.x,'y':self.y,'z':self.z, 'image_uuid': self.image_uuid, 'parent_uuid':self.parent_uuid}
         if full=='full':
             pass
         return dictionary
+
+robot_schema = {
+    "uuid": uuid_schema,
+    "name": {"type": "string", "pattern": "^[^/ ]+$"},
+    "notes": generic_string,
+    "container_uuid": uuid_schema,
+
+    "robot_id": generic_string,
+    "robot_type": {'type': 'string', 'enum': ['OT2']},
+    "server_version": generic_string,
+
+}
+robot_required = ['name','container_uuid','robot_id','robot_type']
+
+class Robot(db.Model):
+    validator = schema_generator(robot_schema,robot_required)
+    put_validator = schema_generator(robot_schema,[])
+
+    __tablename__ = 'robots'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+
+    container_uuid = db.Column(UUID, db.ForeignKey('containers.uuid'))
+
+    name = db.Column(db.String)
+    notes = db.Column(db.String)
+    robot_id = db.Column(db.String)
+
+    robot_type = db.Column(db.String)
+    server_version = db.Column(db.String)
+
+    def toJSON(self,full=None):
+        dictionary= {'uuid':self.uuid,'name':self.name,'notes':self.description,'container_uuid':self.container_uuid, 'robot_id':self.robot_type,'server_version':self.robot_version}
+        return dictionary
+
+module_schema = {
+    "uuid": uuid_schema,
+    "name": {"type": "string", "pattern": "^[^/ ]+$"},
+    "notes": generic_string,
+    "container_uuid": uuid_schema,
+
+    "model_id": generic_string,
+    "module_type": {'type': 'string', 'enum': ['magdeck','tempblock']},
+    "robot_compatibility": {'type': 'string', 'enum': ['OT2']},
+}
+module_required = ['name','container_uuid','module_type']
+
+class Module(db.Model):
+    validator = schema_generator(module_schema,module_required)
+    put_validator = schema_generator(module_schema,[])
+
+    __tablename__ = 'modules'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+    
+    container_uuid = db.Column(UUID, db.ForeignKey('containers.uuid'))
+
+    name = db.Column(db.String)
+    notes = db.Column(db.String)
+
+    model_id = db.Column(db.String)
+    module_type = db.Column(db.String)
+    robot_compatibility = db.Column(db.String)
+
+    def toJSON(self,full=None):
+        dictionary= {'uuid':self.uuid,'name':self.name,'notes':self.description,'container_uuid':self.container_uuid,'model_id':self.model_id,'module_type':self.module_type,'robot_compatibility':self.robot_compatibility}
+        return dictionary
+
+
+pipette_schema = {
+    "uuid": uuid_schema,
+    "name": {"type": "string", "pattern": "^[^/ ]+$"},
+    "notes": generic_string,
+    "container_uuid": uuid_schema,
+
+    "model_id": generic_string,
+    "robot_compatibility": {'type': 'string', 'enum': ['OT2']},
+}
+pipette_required = ['name','container_uuid','module_type']
+
+class Pipette(db.Model):
+    validator = schema_generator(pipette_schema,pipette_required)
+    put_validator = schema_generator(pipette_schema,[])
+
+    __tablename__ = 'pipettes'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+    
+    container_uuid = db.Column(UUID, db.ForeignKey('containers.uuid'))
+
+    name = db.Column(db.String)
+    notes = db.Column(db.String)
+
+    model_id = db.Column(db.String)
+    pipette_type = db.Column(db.JSON, nullable=True)
+    robot_compatibility = db.Column(db.String)
+
+    def toJSON(self,full=None):
+        dictionary= {'uuid':self.uuid,'name':self.name,'notes':self.description,'container_uuid':self.container_uuid,'model_id':self.model_id,'pipette_type':self.pipette_type,'robot_compatibility':self.robot_compatibility}
+        return dictionary
+
+
 
 
 # Plates #
