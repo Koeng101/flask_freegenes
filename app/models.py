@@ -387,7 +387,7 @@ class Robot(db.Model):
     server_version = db.Column(db.String)
 
     def toJSON(self,full=None):
-        dictionary= {'uuid':self.uuid,'name':self.name,'notes':self.notes,'container_uuid':self.container_uuid, 'robot_id':self.robot_type,'server_version':self.robot_version}
+        dictionary= {'uuid':self.uuid,'name':self.name,'notes':self.notes,'container_uuid':self.container_uuid, 'robot_id':self.robot_type,'server_version':self.server_version}
         return dictionary
 
 
