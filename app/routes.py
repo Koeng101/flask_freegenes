@@ -1,4 +1,8 @@
 import json
+import constraint
+from collections import Counter
+
+import hashlib
 import numpy as np
 from jsonschema import validate
 
@@ -111,6 +115,18 @@ def crud_get_list(cls,full=None):
 
 def crud_post(cls,post,database):
     obj = request_to_class(cls(),post)
+    if cls in Schema.schema_classes:
+        schema = Schema.query.filter_by(uuid=request.get_json()['schema_uuid']).first()
+        try:
+            validate(instance=request.get_json()['data'],schema=schema.schema)
+        except Exception as e:
+            return make_response(jsonify({'message': 'Schema validation failed: {}'.format(e)}),400)
+
+    if cls == Schema:
+        obj.schema_hash = hashlib.sha256(json.dumps(request.get_json()['schema']).encode('utf-8')).hexdigest()
+        hash_matches = Schema.query.filter_by(schema_hash=obj.schema_hash).all()
+        if len(hash_matches) != 0:
+            return make_response(jsonify({'message': 'Schema hash present in db'}),400)
     database.session.add(obj)
     database.session.commit()
     return jsonify(obj.toJSON())
@@ -174,7 +190,7 @@ class CRUD():
                             return make_response(jsonify({'message': 'UUID taken'}),501)
                     return crud_post(cls,request.get_json(),db)
         else:
-            print('Custom post and list for {}'.format(name))
+            pass
 
         @self.ns.route('/<uuid>')
         class NormalRoute(Resource):
@@ -458,7 +474,6 @@ def child_tree(container,full=None):
 
     if full == 'full':
         children=[obj.toJSON() for obj in container.modules] + children
-        children=[obj.toJSON() for obj in container.pipettes] + children
         children=[obj.toJSON() for obj in container.plates] + children
     dictionary['children'] = children
 
@@ -530,10 +545,6 @@ CRUD(ns_robot,Robot,robot_model,'robot',validate_json=True)
 ns_module = Namespace('modules',description='Modules')
 module_model = ns_module.schema_model('module',Module.validator)
 CRUD(ns_module,Module,module_model,'module',validate_json=True)
-
-ns_pipette = Namespace('pipettes',description='Pipettes')
-pipette_model = ns_pipette.schema_model('pipette',Pipette.validator)
-CRUD(ns_pipette,Pipette,pipette_model,'pipette',validate_json=True)
 
 ###
 
@@ -814,5 +825,9 @@ class BionetPacketValidator(Resource):
         return jsonify(bionet_packet)
 
 
-namespaces = ns_token, ns_collection, ns_part, ns_part_modifiers, ns_author, ns_organism, ns_protocol, ns_plate, ns_sample, ns_well, ns_file, ns_operation, ns_plan, ns_plateset, ns_distribution, ns_order, ns_institution, ns_materialtransferagreement, ns_shipment, ns_address, ns_parcel,ns_bionet, ns_container, ns_robot, ns_module, ns_pipette
+ns_schema = Namespace('schemas',description='Schemas')
+schema_model = ns_schema.schema_model('schema',Schema.validator)
+CRUD(ns_schema,Schema,schema_model,'schema',validate_json=True)
+
+namespaces = [ns_token, ns_collection, ns_part, ns_part_modifiers, ns_author, ns_organism, ns_protocol, ns_plate, ns_sample, ns_well, ns_file, ns_operation, ns_plan, ns_plateset, ns_distribution, ns_order, ns_institution, ns_materialtransferagreement, ns_shipment, ns_address, ns_parcel,ns_bionet, ns_container, ns_robot, ns_module, ns_schema]
 

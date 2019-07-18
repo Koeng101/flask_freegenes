@@ -348,7 +348,6 @@ class Container(db.Model):
     plates = db.relationship('Plate',backref='container')
     robots = db.relationship('Robot',backref='container')
     modules = db.relationship('Module',backref='container')
-    pipettes = db.relationship('Pipette',backref='container')
 
     def toJSON(self, full=None):
         dictionary= {'uuid':self.uuid,'name':self.name,'description':self.description,'container_type': self.container_type,'estimated_temperature':self.estimated_temperature,'x':self.x,'y':self.y,'z':self.z, 'image_uuid': self.image_uuid, 'parent_uuid':self.parent_uuid}
@@ -391,6 +390,7 @@ class Robot(db.Model):
         dictionary= {'uuid':self.uuid,'name':self.name,'notes':self.description,'container_uuid':self.container_uuid, 'robot_id':self.robot_type,'server_version':self.robot_version}
         return dictionary
 
+
 module_schema = {
     "uuid": uuid_schema,
     "name": {"type": "string", "pattern": "^[^/ ]+$"},
@@ -398,11 +398,10 @@ module_schema = {
     "container_uuid": uuid_schema,
 
     "model_id": generic_string,
-    "module_type": {'type': 'string', 'enum': ['magdeck','tempblock']},
-    "robot_compatibility": {'type': 'string', 'enum': ['OT2']},
+    "schema_uuid": uuid_schema,
+    "module": {'type': 'object'},
 }
-module_required = ['name','container_uuid','module_type']
-
+module_required = ['name','container_uuid','schema_uuid']
 class Module(db.Model):
     validator = schema_generator(module_schema,module_required)
     put_validator = schema_generator(module_schema,[])
@@ -418,48 +417,12 @@ class Module(db.Model):
     notes = db.Column(db.String)
 
     model_id = db.Column(db.String)
-    module_type = db.Column(db.String)
-    robot_compatibility = db.Column(db.String)
+    schema_uuid = db.Column(UUID, db.ForeignKey('schemas.uuid'))
+    data = db.Column(db.JSON)
 
     def toJSON(self,full=None):
         dictionary= {'uuid':self.uuid,'name':self.name,'notes':self.description,'container_uuid':self.container_uuid,'model_id':self.model_id,'module_type':self.module_type,'robot_compatibility':self.robot_compatibility}
         return dictionary
-
-
-pipette_schema = {
-    "uuid": uuid_schema,
-    "name": {"type": "string", "pattern": "^[^/ ]+$"},
-    "notes": generic_string,
-    "container_uuid": uuid_schema,
-
-    "model_id": generic_string,
-    "robot_compatibility": {'type': 'string', 'enum': ['OT2']},
-}
-pipette_required = ['name','container_uuid','module_type']
-
-class Pipette(db.Model):
-    validator = schema_generator(pipette_schema,pipette_required)
-    put_validator = schema_generator(pipette_schema,[])
-
-    __tablename__ = 'pipettes'
-    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
-    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
-    
-    container_uuid = db.Column(UUID, db.ForeignKey('containers.uuid'))
-
-    name = db.Column(db.String)
-    notes = db.Column(db.String)
-
-    model_id = db.Column(db.String)
-    pipette_type = db.Column(db.JSON, nullable=True)
-    robot_compatibility = db.Column(db.String)
-
-    def toJSON(self,full=None):
-        dictionary= {'uuid':self.uuid,'name':self.name,'notes':self.description,'container_uuid':self.container_uuid,'model_id':self.model_id,'pipette_type':self.pipette_type,'robot_compatibility':self.robot_compatibility}
-        return dictionary
-
-
 
 
 # Plates #
@@ -609,39 +572,14 @@ class Well(db.Model): # Constrain Wells to being unique to each plate
             dictionary['samples'] = [sample.uuid for sample in self.samples]
         return dictionary
 
-# Protocol things
-
-protocolschema_schema = {
-    "uuid": uuid_schema,
-    "name": generic_string,
-    "description": generic_string,
-    "schema": {'type': 'object'}
-}
-protocolschema_required = ['name','description','schema']
-class ProtocolSchema(db.Model):
-    validator = schema_generator(protocolschema_schema,protocolschema_required)
-    put_validator = schema_generator(protocolschema_schema,[])
-
-    __tablename__ = 'protocolschemas'
-    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
-    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
-
-    name = db.Column(db.String())
-    description = db.Column(db.String())
-
-    schema = db.Column(db.JSON, nullable=False)
-
-
-
 protocol_schema = {
     "uuid": uuid_schema,
     "description": generic_string,
-    "protocol": {'type': 'object'},
+    "data": {'type': 'object'},
     "status": {'type': 'string', 'enum':['Executed','Planned']},
-    "protocolschema": uuid_schema,
+    "schema_uuid": uuid_schema,
 }
-protocol_required = ['protocol','protocolschema']
+protocol_required = ['protocol','schema_uuid']
 class Protocol(db.Model):
     validator = schema_generator(protocol_schema,protocol_required)
     put_validator = schema_generator(protocol_schema,[])
@@ -652,12 +590,13 @@ class Protocol(db.Model):
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
     description = db.Column(db.String())
-    protocol = db.Column(db.JSON, nullable=False)
-
+    data = db.Column(db.JSON, nullable=False)
+    
+    schema = db.Column(UUID, db.ForeignKey('schemas.uuid'))
     plates = db.relationship('Plate',backref='protocol') # TODO ADD plates in toJSON
 
     def toJSON(self,full=None):
-        dictionary= {'uuid': self.uuid, 'description': self.description, 'protocol': self.protocol}
+        dictionary= {'uuid': self.uuid, 'description': self.description, 'data': self.data}
         if full=='full':
             dictionary['plates'] = [plate.uuid for plate in self.plates]
         return dictionary
@@ -1027,5 +966,39 @@ class MaterialTransferAgreement(db.Model):
 
     def toJSON(self,full=None):
         dictionary = {"uuid": self.uuid, "institution": self.institution, "mta_type": self.mta_type, "file": self.file}
+        return dictionary
+
+
+### SCHEMA
+schema_schema = {
+    "uuid": uuid_schema,
+    "name": generic_string,
+    "description": generic_string,
+    "schema_version": generic_string,
+    "schema": {'type': 'object'}
+}
+schema_required = ['name','description','schema']
+class Schema(db.Model):
+    validator = schema_generator(schema_schema,schema_required)
+    put_validator = schema_generator(schema_schema,[])
+
+    __tablename__ = 'schemas'
+    uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+
+    name = db.Column(db.String)
+    description = db.Column(db.String)
+    schema_version = db.Column(db.String)
+    
+    schema = db.Column(db.JSON,nullable=False)
+    schema_hash = db.Column(db.String, unique=True)
+
+    schema_classes = [Protocol, Module]
+
+    def toJSON(self,full=None):
+        dictionary= {'uuid': self.uuid, 'name': self.name, 'description': self.description, 'schema':self.schema}
+        if full=='full':
+            pass
         return dictionary
 
