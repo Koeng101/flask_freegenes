@@ -151,6 +151,13 @@ def crud_delete(cls,uuid,database,constraints={}):
 
 def crud_put(cls,uuid,post,database):
     obj = cls.query.filter_by(uuid=uuid).first()
+    if cls in Schema.schema_classes:
+        schema = Schema.query.filter_by(uuid=obj.schema_uuid).first()
+        try:
+            validate(instance=obj.data,schema=schema.schema)
+        except Exception as e:
+            return make_response(jsonify({'message': 'Schema validation failed: {}'.format(e)}),400)
+
     updated_obj = request_to_class(obj,post)
     db.session.commit()
     return jsonify(obj.toJSON())

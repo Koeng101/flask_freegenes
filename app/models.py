@@ -398,10 +398,15 @@ module_schema = {
     "container_uuid": uuid_schema,
 
     "model_id": generic_string,
-    "schema_uuid": uuid_schema,
-    "module": {'type': 'object'},
+    "module_type": {"type": "string", "enum":["pipette","tempblock","magdeck"]},
+    "data": {'anyOf': [
+        schema_generator({'upper_range_ul': generic_num, 'lower_range_ul': generic_num, 'channels': generic_num, 'compatible_with': {'type': 'array', 'items': generic_string}}, # Pipette
+            ['upper_range_ul','lower_range_ul','channels','compatible_with']),
+        schema_generator({'temperature': generic_num, 'shaking': {'type': 'boolean'}, 'fits': {'type':'string','enum':['deep96','deep384']}}, # Incubator
+            ['temperature','shaking','fits']) 
+        ]},
 }
-module_required = ['name','container_uuid','schema_uuid']
+module_required = ['name','container_uuid','module_type','data']
 class Module(db.Model):
     validator = schema_generator(module_schema,module_required)
     put_validator = schema_generator(module_schema,[])
@@ -417,11 +422,12 @@ class Module(db.Model):
     notes = db.Column(db.String)
 
     model_id = db.Column(db.String)
-    schema_uuid = db.Column(UUID, db.ForeignKey('schemas.uuid'))
+    module_type = db.Column(db.String)
+
     data = db.Column(db.JSON)
 
     def toJSON(self,full=None):
-        dictionary= {'uuid':self.uuid,'name':self.name,'notes':self.description,'container_uuid':self.container_uuid,'model_id':self.model_id,'module_type':self.module_type,'robot_compatibility':self.robot_compatibility}
+        dictionary= {'uuid':self.uuid,'name':self.name,'notes':self.notes,'container_uuid':self.container_uuid,'model_id':self.model_id,'module_type':self.module_type,'data':self.data}
         return dictionary
 
 
@@ -994,7 +1000,7 @@ class Schema(db.Model):
     schema = db.Column(db.JSON,nullable=False)
     schema_hash = db.Column(db.String, unique=True)
 
-    schema_classes = [Protocol, Module]
+    schema_classes = [Protocol]
 
     def toJSON(self,full=None):
         dictionary= {'uuid': self.uuid, 'name': self.name, 'description': self.description, 'schema':self.schema}

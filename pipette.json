@@ -1,0 +1,1 @@
+{"$schema": "http://json-schema.org/schema#", "type": "object", "properties": {"upper_range_ul": {"type": "number"}, "lower_range_ul": {"type": "number"}, "channels": {"type": "number"}}, "required": ["upper_range_ul", "lower_range_ul", "channels"], "additionalProperties": false}
