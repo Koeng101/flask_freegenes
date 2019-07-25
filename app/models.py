@@ -365,6 +365,9 @@ robot_schema = {
     "robot_type": {'type': 'string', 'enum': ['OT2']},
     "server_version": generic_string,
 
+    "right_mount": uuid_schema,
+    "left_mount": uuid_schema
+
 }
 robot_required = ['name','container_uuid','robot_id','robot_type']
 
@@ -386,8 +389,11 @@ class Robot(db.Model):
     robot_type = db.Column(db.String)
     server_version = db.Column(db.String)
 
+    right_mount = db.Column(UUID, db.ForeignKey('modules.uuid'))
+    left_mount =db.Column(UUID, db.ForeignKey('modules.uuid'))
+
     def toJSON(self,full=None):
-        dictionary= {'uuid':self.uuid,'name':self.name,'notes':self.notes,'container_uuid':self.container_uuid, 'robot_id':self.robot_id, 'robot_type':self.robot_type,'server_version':self.server_version}
+        dictionary= {'uuid':self.uuid,'name':self.name,'notes':self.notes,'container_uuid':self.container_uuid, 'robot_id':self.robot_id, 'robot_type':self.robot_type,'server_version':self.server_version,'right_mount':self.right_mount,'left_mount':self.left_mount}
         return dictionary
 
 
@@ -398,12 +404,21 @@ module_schema = {
     "container_uuid": uuid_schema,
 
     "model_id": generic_string,
-    "module_type": {"type": "string", "enum":["pipette","tempblock","magdeck"]},
+    "module_type": {"type": "string", "enum":["pipette","tempdeck","magdeck","incubator"]},
     "data": {'anyOf': [
-        schema_generator({'upper_range_ul': generic_num, 'lower_range_ul': generic_num, 'channels': generic_num, 'compatible_with': {'type': 'array', 'items': generic_string}}, # Pipette
+        # Pipette
+        schema_generator({'upper_range_ul': generic_num, 'lower_range_ul': generic_num, 'channels': generic_num, 'compatible_with': {'type': 'array', 'items': {'type': 'string', 'enum': ['OT2','Human']}}}, # Pipette
             ['upper_range_ul','lower_range_ul','channels','compatible_with']),
-        schema_generator({'temperature': generic_num, 'shaking': {'type': 'boolean'}, 'fits': {'type':'string','enum':['deep96','deep384']}}, # Incubator
-            ['temperature','shaking','fits']) 
+        # Incubator
+        schema_generator({'temperature': generic_num, 'shaking': {'type': 'boolean'}, 'fits': {'type': 'array', 'items': {'type':'string','enum':['deep96','deep384','agar96']}}}, # Incubator
+            ['temperature','shaking','fits']),
+        # Magdeck
+        schema_generator({'compatible_with': {'type': 'array', 'items': {'type': 'string', 'enum': ['OT2','Human']}}, 'fits': {'type': 'array', 'items': {'type':'string','enum':['pcrhardshell96','pcrstrip8']}}},
+            ['compatible_with','fits']),
+        # Tempdeck
+        schema_generator({'upper_range_tm': generic_num, 'lower_range_tm': generic_num, 'default_tm': generic_num,
+            'compatible_with': {'type': 'array', 'items': {'type': 'string', 'enum': ['OT2','Human']}}, 'fits': {'type': 'array', 'items':{'type':'string','enum':['pcrhardshell96','pcrstrip8','microcentrifuge2ml']}}},
+            ['upper_range_tm','lower_range_tm','default_tm','compatible_with','fits'])
         ]},
 }
 module_required = ['name','container_uuid','module_type','data']
@@ -438,7 +453,7 @@ plate_schema = {
   "plate_vendor_id": generic_string,
   "breadcrumb": generic_string,
   "plate_name": generic_string,
-  "plate_form": {'type': 'string', 'enum': ['standard96','deep96','standard384','deep384']},
+  "plate_form": {'type': 'string', 'enum': ['standard96','deep96','standard384','deep384','pcrhardshell96','pcrstrip8','agar96','microcentrifuge2ml']},
   "plate_type": {'type': 'string', 'enum': ['archive_glycerol_stock','glycerol_stock','culture','distro']},
   "notes": generic_string,
   "protocol_uuid": uuid_schema,
@@ -1007,4 +1022,5 @@ class Schema(db.Model):
         if full=='full':
             pass
         return dictionary
+
 
