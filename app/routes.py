@@ -296,6 +296,17 @@ class CollectionPartStatus(Resource):
             dictionary[str(r[0])] = r[1]
         return jsonify(dictionary)
 
+@ns_collection.route('/parts_with_confirmed_samples/<uuid>')
+class CollectionSampleStatus(Resource):
+    @ns_collection.doc('collection_get_confirmed_parts')
+    def get(self,uuid):
+        sql_query = """SELECT s.part_uuid 
+        FROM samples AS s
+        RIGHT JOIN (SELECT parts.uuid AS part_uuid FROM parts WHERE parts.collection_id='{}') as p ON p.part_uuid=s.part_uuid
+        WHERE s.status='Confirmed'""".format(uuid)
+        return jsonify([str(r[0])for r in db.engine.execute(sql_query)])
+
+
 ###
 
 ns_part = Namespace('parts', description='Parts')
