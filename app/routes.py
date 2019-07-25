@@ -21,6 +21,7 @@ from .config import LOGIN_KEY
 from .config import SPACES
 from .config import BUCKET
 from .config import SHIPPO_KEY
+from .optimal_selection import Build
 #from dna_designer import moclo, codon
 
 #from .sequence import sequence
@@ -361,6 +362,35 @@ class PartLocations(Resource):
                 plate['wells'] = well.toJSON()
                 results.append(plate)
         return jsonify(results)
+
+
+build_model = ns_part.schema_model('build',Build.validator)
+@ns_part.route('/query_transfers')
+class PartTransfers(Resource):
+    @ns_part.expect(build_model)
+    def post(self):
+        build_request = request.get_json()
+        try:
+            validate(instance=build_request,schema=Build.validator)
+        except Exception as e:
+            return make_response(jsonify({'message': 'Schema validation failed: {}'.format(e)}),400)
+        
+        try:
+            build = Build([],
+                    sample_status=build_request.setdefault('sample_status', ['Confirmed']),
+                    sample_evidence=build_request.setdefault('sample_evidence',['NGS','Twist_Confirmed']),
+                    plate_type=build_request.setdefault('plate_type',['glycerol_stock'])
+                    )
+            build.transfer_groups_as_part(build_request['parts'],build_request['volume'])
+            build.generate_PlateList(os.environ['URL'])
+            return jsonify(build.export_solution())
+        except Exception as e:
+            return make_response(jsonify({'message': 'Build failed: {}'.format(e)}),400)
+
+
+
+        
+
 
 ###
 
@@ -821,32 +851,34 @@ class ConfirmShipment(Resource):
         return jsonify({'message': 'Thank you!'})
 
 ###
-base = {"collections": {"schema": collection_schema, "required": collection_required},
-        "parts": {"schema": part_schema, "required": part_required},
-        "samples": {"schema": sample_schema, "required": sample_required},
-        "plates": {"schema": plate_schema, "required": plate_required},
-        "wells": {"schema": well_schema, "required": well_required},
-        "organisms": {"schema": organism_schema, "required": organism_required},
-        "authors": {"schema": author_schema, "required": author_required},
-        "metadata": {"type": "object"}}
-
-for k,v in base.items():
-    if k != 'metadata':
-        base[k] = {"type": "array", "items": schema_generator(v['schema'],v['required']+['uuid'], additionalProperties=True)}
-
-bionet_packet = schema_generator(base,['collections','authors','parts'])
-
-ns_bionet = Namespace('fg_obj',description='FreeGenes Object validator')
-@ns_bionet.route('/validator')
-class BionetPacketValidator(Resource):
-    @ns_bionet.doc('validator for FreeGenes export')
-    def get(self):
-        return jsonify(bionet_packet)
-
+#base = {"collections": {"schema": collection_schema, "required": collection_required},
+#        "parts": {"schema": part_schema, "required": part_required},
+#        "samples": {"schema": sample_schema, "required": sample_required},
+#        "plates": {"schema": plate_schema, "required": plate_required},
+#        "wells": {"schema": well_schema, "required": well_required},
+#        "organisms": {"schema": organism_schema, "required": organism_required},
+#        "authors": {"schema": author_schema, "required": author_required},
+#        "metadata": {"type": "object"}}
+#
+#for k,v in base.items():
+#    if k != 'metadata':
+#        base[k] = {"type": "array", "items": schema_generator(v['schema'],v['required']+['uuid'], additionalProperties=True)}
+#
+#bionet_packet = schema_generator(base,['collections','authors','parts'])
+#
+#ns_bionet = Namespace('fg_obj',description='FreeGenes Object validator')
+#@ns_bionet.route('/validator')
+#class BionetPacketValidator(Resource):
+#    @ns_bionet.doc('validator for FreeGenes export')
+#    def get(self):
+#        return jsonify(bionet_packet)
+#
 
 ns_schema = Namespace('schemas',description='Schemas')
 schema_model = ns_schema.schema_model('schema',Schema.validator)
 CRUD(ns_schema,Schema,schema_model,'schema',validate_json=True)
 
-namespaces = [ns_token, ns_collection, ns_part, ns_part_modifiers, ns_author, ns_organism, ns_protocol, ns_plate, ns_sample, ns_well, ns_file, ns_operation, ns_plan, ns_plateset, ns_distribution, ns_order, ns_institution, ns_materialtransferagreement, ns_shipment, ns_address, ns_parcel,ns_bionet, ns_container, ns_robot, ns_module, ns_schema]
+# Build
+
+namespaces = [ns_token, ns_collection, ns_part, ns_part_modifiers, ns_author, ns_organism, ns_protocol, ns_plate, ns_sample, ns_well, ns_file, ns_operation, ns_plan, ns_plateset, ns_distribution, ns_order, ns_institution, ns_materialtransferagreement, ns_shipment, ns_address, ns_parcel, ns_container, ns_robot, ns_module, ns_schema]
 
