@@ -303,7 +303,8 @@ class CollectionSampleStatus(Resource):
         sql_query = """SELECT s.part_uuid 
         FROM samples AS s
         RIGHT JOIN (SELECT parts.uuid AS part_uuid FROM parts WHERE parts.collection_id='{}') as p ON p.part_uuid=s.part_uuid
-        WHERE s.status='Confirmed'""".format(uuid)
+        WHERE s.status='Confirmed'
+        AND s.evidence IN('NGS', 'Twist_Confirmed')""".format(uuid)
         return jsonify([str(r[0])for r in db.engine.execute(sql_query)])
 
 
